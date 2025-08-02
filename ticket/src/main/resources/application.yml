@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: ticket
+
+server:
+  port: 8081
+
+otel:
+  exporter:
+    otlp:
+      protocol: grpc
+      endpoint: http://localhost:4317
+  traces:
+    exporter: otlp
+  logs:
+    exporter: none
+  metrics:
+    exporter: none

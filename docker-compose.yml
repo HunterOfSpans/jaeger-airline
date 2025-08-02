@@ -9,6 +9,14 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
+  ticket:
+    build:
+      context: ./ticket
+    container_name: ticket
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
   collector:
     build:
       context: ./jaeger/collector
