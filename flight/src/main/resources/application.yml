@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: flight
+
+
+otel:
+  exporter:
+    otlp:
+      protocol: grpc
+      endpoint: http://localhost:4317
+  traces:
+    exporter: otlp
+  logs:
+    exporter: none
+  metrics:
+    exporter: none

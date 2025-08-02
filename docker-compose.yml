@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  flight:
+    build:
+      context: ./flight
+    container_name: flight
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  collector:
+    build:
+      context: ./jaeger/collector
+    container_name: jaeger-collector
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "5778:5778"
+    restart: unless-stopped
+
+  query:
+    build:
+      context: ./jaeger/query
+    container_name: jaeger-query
+    ports:
+      - "16686:16686"
+    restart: unless-stopped

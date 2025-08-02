@@ -1,0 +1,56 @@
+service:
+  extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+  pipelines:
+    traces:
+      receivers: [nop]
+      processors: [batch]
+      exporters: [nop]
+  telemetry:
+    resource:
+      service.name: jaeger-collector
+    logs:
+      level: debug
+
+extensions:
+  healthcheckv2:
+    use_v2: true
+    http:
+
+  jaeger_storage:
+    backends:
+      query_storage:
+        elasticsearch:
+          server_urls:
+            - https://host.docker.internal:9200
+          indices:
+            index_prefix: "jaeger-prod"
+          use_aliases: true
+          use_ilm: true          
+          auth:
+            basic:
+              username: elastic
+              password: Scg7B4FlXFC4F7DZoIkj
+          # elastic search tls 연결 시 사용
+          tls:
+            ca_file: certs/ca.crt
+            insecure_skip_verify: true # ca file 의 SAN 검증 무시
+  jaeger_query:
+    storage:
+      traces: query_storage
+    base_path: /
+    ui:
+      config_file: etc/jaeger/ui-config.json
+      log_access: true
+    grpc:
+      endpoint: 0.0.0.0:16685
+    http:
+      endpoint: 0.0.0.0:16686
+
+receivers:
+  nop:
+
+processors:
+  batch:
+
+exporters:
+  nop:
