@@ -1,13 +1,51 @@
 version: '3.8'
 
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    networks:
+      - jaeger
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+  es-rollover-init:
+    image: jaegertracing/jaeger-es-rollover:latest
+    container_name: jaeger-es-init
+    depends_on:
+      - elasticsearch
+    entrypoint: >
+      sh -c "sleep 10 &&
+             /go/bin/es-rollover init http://elasticsearch:9200
+             --es.use-ilm
+             --index-prefix jaeger-prod"
+    networks:
+      - jaeger
+    restart: "no"
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - jaeger
+    depends_on:
+      - elasticsearch
   flight:
     build:
       context: ./flight
     container_name: flight
     ports:
       - "8080:8080"
+    networks:
+      - jaeger
     restart: unless-stopped
+    depends_on:
+      - collector
 
   ticket:
     build:
@@ -15,22 +53,41 @@ services:
     container_name: ticket
     ports:
       - "8081:8081"
+    networks:
+      - jaeger
     restart: unless-stopped
+    depends_on:
+      - collector
 
   collector:
     build:
       context: ./jaeger/collector
     container_name: jaeger-collector
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "5778:5778"
+      - "4317:4317" # grpc
+      - "4318:4318" # http
+      - "5778:5778" # remote sampling http
+      - "5779:5779" # remote sampling grpc
+      - "14269:14269" # healthcheck
     restart: unless-stopped
+    networks:
+      - jaeger
+    depends_on:
+      - elasticsearch
 
   query:
     build:
       context: ./jaeger/query
     container_name: jaeger-query
     ports:
-      - "16686:16686"
+      - "16686:16686" # ui port
+      - "16687:16687" # healthcheck
     restart: unless-stopped
+    networks:
+      - jaeger
+    depends_on:
+      - elasticsearch
+
+networks:
+  jaeger:
+    driver: bridge

@@ -7,7 +7,7 @@ otel:
   exporter:
     otlp:
       protocol: grpc
-      endpoint: http://localhost:4317
+      endpoint: http://collector:4317
   traces:
     exporter: otlp
   logs:

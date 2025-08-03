@@ -15,25 +15,26 @@ extensions:
   healthcheckv2:
     use_v2: true
     http:
+      endpoint: 0.0.0.0:16687
 
   jaeger_storage:
     backends:
       query_storage:
         elasticsearch:
           server_urls:
-            - https://host.docker.internal:9200
+            - http://elasticsearch:9200
           indices:
             index_prefix: "jaeger-prod"
           use_aliases: true
-          use_ilm: true          
-          auth:
-            basic:
-              username: elastic
-              password: Scg7B4FlXFC4F7DZoIkj
+          use_ilm: true
           # elastic search tls 연결 시 사용
-          tls:
-            ca_file: certs/ca.crt
-            insecure_skip_verify: true # ca file 의 SAN 검증 무시
+#          auth:
+#            basic:
+#              username: ${elasticsearch.username}
+#              password: ${elasticsearch.password}
+#          tls:
+#            ca_file: certs/ca.crt
+#            insecure_skip_verify: true # ca file 의 SAN 검증 무시
   jaeger_query:
     storage:
       traces: query_storage
