@@ -11,19 +11,59 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" ]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  ilm-setup:
+    image: appropriate/curl
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      curl -X PUT http://elasticsearch:9200/_ilm/policy/jaeger-ilm-policy -H 'Content-Type: application/json' -d'
+      {
+        \"policy\": {
+          \"phases\": {
+            \"hot\": {
+              \"actions\": {
+                \"rollover\": {
+                  \"max_size\": \"100mb\",
+                  \"max_age\": \"3m\"
+                }
+              }
+            },
+            \"delete\": {
+              \"min_age\": \"5m\",
+              \"actions\": {
+                \"delete\": {}
+              }
+            }
+          }
+        }
+      }'
+      "
+    restart: "no"
+    networks:
+      - jaeger
+
   es-rollover-init:
     image: jaegertracing/jaeger-es-rollover:latest
     container_name: jaeger-es-init
     depends_on:
-      - elasticsearch
-    entrypoint: >
-      sh -c "sleep 10 &&
-             /go/bin/es-rollover init http://elasticsearch:9200
-             --es.use-ilm
-             --index-prefix jaeger-prod"
+      ilm-setup:
+        condition: service_completed_successfully
+    command: >
+      init http://elasticsearch:9200
+      --es.use-ilm
+      --index-prefix jaeger-prod
     networks:
       - jaeger
     restart: "no"
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.13.0
     container_name: kibana
@@ -35,6 +75,7 @@ services:
       - jaeger
     depends_on:
       - elasticsearch
+
   flight:
     build:
       context: ./flight
@@ -58,6 +99,7 @@ services:
     restart: unless-stopped
     depends_on:
       - collector
+
   payment:
     build:
       context: ./payment
@@ -69,6 +111,7 @@ services:
     restart: unless-stopped
     depends_on:
       - collector
+
   reservation:
     build:
       context: ./reservation
@@ -80,7 +123,6 @@ services:
     restart: unless-stopped
     depends_on:
       - collector
-
 
   collector:
     build:
