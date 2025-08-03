@@ -1,9 +1,9 @@
 FROM gradle:8.5-jdk17 AS builder
-COPY --chown=gradle:gradle . /ticket
-WORKDIR /ticket
+COPY --chown=gradle:gradle . /payment
+WORKDIR /payment
 RUN gradle build -x test
 
 FROM openjdk:17-jdk-slim
-COPY --from=builder /payment/build/libs/*.jar ticket.jar
-EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "/ticket.jar"]
+COPY --from=builder /payment/build/libs/*.jar payment.jar
+EXPOSE 8082
+ENTRYPOINT ["java", "-jar", "/payment.jar"]

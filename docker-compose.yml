@@ -58,6 +58,29 @@ services:
     restart: unless-stopped
     depends_on:
       - collector
+  payment:
+    build:
+      context: ./payment
+    container_name: payment
+    ports:
+      - "8082:8082"
+    networks:
+      - jaeger
+    restart: unless-stopped
+    depends_on:
+      - collector
+  reservation:
+    build:
+      context: ./reservation
+    container_name: reservation
+    ports:
+      - "8083:8083"
+    networks:
+      - jaeger
+    restart: unless-stopped
+    depends_on:
+      - collector
+
 
   collector:
     build:
