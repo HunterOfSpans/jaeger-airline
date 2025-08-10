@@ -9,8 +9,13 @@ services:
     networks:
       - jaeger
     environment:
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
       - discovery.type=single-node
       - xpack.security.enabled=false
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" ]
       interval: 30s
@@ -156,3 +161,4 @@ services:
 networks:
   jaeger:
     driver: bridge
+    external: true

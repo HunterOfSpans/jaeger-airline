@@ -1,7 +1,8 @@
 version: '3.8'
 
 networks:
-  kafka_network:
+  jaeger:
+    external: true
 
 volumes:
   Kafka00:
@@ -15,7 +16,7 @@ services:
   Kafka00Service:
     image: bitnami/kafka:3.7.0
     restart: unless-stopped
-    container_name: shoot-Kafka00Container
+    container_name: Kafka00Container
     ports:
       - '9092:9092' # 내부 네트워크 통신을 위한 PLAINTEXT 리스너
       - '10000:10000' # 외부 접근을 위한 EXTERNAL 리스너
@@ -39,14 +40,14 @@ services:
       - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=2
       - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
     networks:
-      - kafka_network
+      - jaeger
     volumes:
       - Kafka00:/bitnami/kafka
 
   Kafka01Service:
     image: bitnami/kafka:3.7.0
     restart: unless-stopped
-    container_name: shoot-Kafka01Container
+    container_name: Kafka01Container
     ports:
       - '9093:9092' # 내부 네트워크 통신을 위한 PLAINTEXT 리스너
       - '10001:10000' # 외부 접근을 위한 EXTERNAL 리스너
@@ -70,14 +71,14 @@ services:
       - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=2
       - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
     networks:
-      - kafka_network
+      - jaeger
     volumes:
       - Kafka01:/bitnami/kafka
 
   Kafka02Service:
     image: bitnami/kafka:3.7.0
     restart: unless-stopped
-    container_name: shoot-Kafka02Container
+    container_name: Kafka02Container
     ports:
       - '9094:9092' # 내부 네트워크 통신을 위한 PLAINTEXT 리스너
       - '10002:10000' # 외부 접근을 위한 EXTERNAL 리스너
@@ -101,14 +102,14 @@ services:
       - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=2
       - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
     networks:
-      - kafka_network
+      - jaeger
     volumes:
       - Kafka02:/bitnami/kafka
 
   KafkaWebUiService:
     image: provectuslabs/kafka-ui:latest
     restart: unless-stopped
-    container_name: shoot-KafkaWebUiContainer
+    container_name: KafkaWebUiContainer
     ports:
       - '8085:8080' # 호스트의 8085 포트를 컨테이너의 8080 포트에 바인딩
     environment:
@@ -122,4 +123,4 @@ services:
       - Kafka01Service
       - Kafka02Service
     networks:
-      - kafka_network
+      - jaeger

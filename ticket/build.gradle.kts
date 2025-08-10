@@ -33,16 +33,21 @@ repositories {
 dependencies {
 	implementation ("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation ("org.jetbrains.kotlin:kotlin-reflect")
-	testImplementation ("org.jetbrains.kotlin:kotlin-test-junit5")
+
 	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
 	implementation ("org.springframework.boot:spring-boot-starter-actuator")
 	implementation ("org.springframework.boot:spring-boot-starter-web")
-	compileOnly ("org.projectlombok:lombok")
-//    runtimeOnly ("io.micrometer:micrometer-registry-otl"(
+	implementation ("org.springframework.kafka:spring-kafka")
+
 	annotationProcessor ("org.springframework.boot:spring-boot-configuration-processor")
+
+	compileOnly ("org.projectlombok:lombok")
 	annotationProcessor ("org.projectlombok:lombok")
+
 	testImplementation ("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
+	testImplementation ("org.jetbrains.kotlin:kotlin-test-junit5")
+
 	implementation ("io.micrometer:micrometer-tracing-bridge-otel")
 	implementation ("io.github.openfeign:feign-micrometer:13.6")
 	implementation ("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")

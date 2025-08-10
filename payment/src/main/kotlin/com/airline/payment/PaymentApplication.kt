@@ -1,4 +1,4 @@
-package com.airline.ticket
+package com.airline.payment
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
