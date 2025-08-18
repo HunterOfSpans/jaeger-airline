@@ -9,17 +9,17 @@ services:
     networks:
       - jaeger
     environment:
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
       - discovery.type=single-node
       - xpack.security.enabled=false
     deploy:
       resources:
         limits:
-          memory: 2g
+          memory: 1g
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" ]
-      interval: 30s
-      timeout: 5s
+      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s" ]
+      interval: 50s
+      timeout: 10s
       retries: 10
 
   ilm-setup:
@@ -89,6 +89,12 @@ services:
       - "8080:8080"
     networks:
       - jaeger
+    environment:
+      - JAVA_OPTS=-Xmx384m -Xms256m
+    deploy:
+      resources:
+        limits:
+          memory: 500m
     restart: unless-stopped
     depends_on:
       - collector
@@ -101,6 +107,12 @@ services:
       - "8081:8081"
     networks:
       - jaeger
+    environment:
+      - JAVA_OPTS=-Xmx384m -Xms256m
+    deploy:
+      resources:
+        limits:
+          memory: 500m
     restart: unless-stopped
     depends_on:
       - collector
@@ -113,6 +125,12 @@ services:
       - "8082:8082"
     networks:
       - jaeger
+    environment:
+      - JAVA_OPTS=-Xmx384m -Xms256m
+    deploy:
+      resources:
+        limits:
+          memory: 500m
     restart: unless-stopped
     depends_on:
       - collector
@@ -125,6 +143,12 @@ services:
       - "8083:8083"
     networks:
       - jaeger
+    environment:
+      - JAVA_OPTS=-Xmx384m -Xms256m
+    deploy:
+      resources:
+        limits:
+          memory: 500m
     restart: unless-stopped
     depends_on:
       - collector
