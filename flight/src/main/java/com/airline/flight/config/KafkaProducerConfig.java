@@ -26,11 +26,14 @@ public class KafkaProducerConfig {
         config.put(ProducerConfig.RETRIES_CONFIG , 3);
         config.put(ProducerConfig.LINGER_MS_CONFIG , 1);
 
+
         return new DefaultKafkaProducerFactory<>(config);
     }
 
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+        final KafkaTemplate<String, String> kafkaTemplate = new KafkaTemplate<>(producerFactory());
+        kafkaTemplate.setObservationEnabled(true);
+        return kafkaTemplate;
     }
 }

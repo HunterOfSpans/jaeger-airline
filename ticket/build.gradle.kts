@@ -16,7 +16,7 @@ java {
 
 dependencyManagement{
 	imports {
-		mavenBom ("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.6.0")
+		mavenBom ("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0")
 	}
 }
 
@@ -37,6 +37,7 @@ dependencies {
 	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
 	implementation ("org.springframework.boot:spring-boot-starter-actuator")
 	implementation ("org.springframework.boot:spring-boot-starter-web")
+	implementation ("org.springframework.boot:spring-boot-starter-aop")
 	implementation ("org.springframework.kafka:spring-kafka")
 
 	annotationProcessor ("org.springframework.boot:spring-boot-configuration-processor")
