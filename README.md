@@ -36,12 +36,17 @@ git clone <repository-url>
 cd jaeger-airline
 ```
 
-2. Docker Compose로 모든 서비스 시작
+2. 모든 서비스 시작
 ```bash
-docker-compose up -d
+./build-and-run.sh
 ```
 
-3. 서비스 접근:
+3. 분산 추적 확인을 위한 예시 요청 전송
+```bash
+./request.sh
+```
+
+4. 서비스 접근:
     - Flight Service: http://localhost:8080
     - Ticket Service: http://localhost:8081
     - Payment Service: http://localhost:8082
@@ -119,12 +124,17 @@ git clone <repository-url>
 cd jaeger-airline
 ```
 
-2. Start all services using Docker Compose
+2. Start all services 
 ```bash
-docker-compose up -d
+./build-and-run.sh
 ```
 
-3. Access the services:
+3. Sending an example request to verify distributed tracing
+```bash
+./request.sh
+```
+
+4. Access the services:
    - Flight Service: http://localhost:8080
    - Ticket Service: http://localhost:8081
    - Payment Service: http://localhost:8082
