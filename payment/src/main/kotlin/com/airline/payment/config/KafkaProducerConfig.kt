@@ -11,7 +11,7 @@ import org.springframework.kafka.core.ProducerFactory
 @Configuration
 class KafkaProducerConfig {
     companion object{
-        const val KAFKA_URIS = "Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092"
+        const val KAFKA_URIS = "localhost:10000,localhost:10001,localhost:10002"
     }
 
     @Bean
