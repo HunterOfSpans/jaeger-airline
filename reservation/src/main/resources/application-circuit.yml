@@ -1,0 +1,48 @@
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      reservation:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        sliding-window-type: count_based
+      flight-service:
+        register-health-indicator: true
+        failure-rate-threshold: 60
+        minimum-number-of-calls: 3
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        sliding-window-size: 5
+      payment-service:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 3
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        sliding-window-size: 5
+      ticket-service:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 3
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        sliding-window-size: 5
+  
+  retry:
+    instances:
+      reservation:
+        max-attempts: 3
+        wait-duration: 2s
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+      
+  timelimiter:
+    instances:
+      reservation:
+        timeout-duration: 30s
