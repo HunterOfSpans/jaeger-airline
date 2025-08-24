@@ -41,7 +41,12 @@ cd jaeger-airline
 ./build-and-run.sh
 ```
 
-3. 분산 추적 확인을 위한 예시 요청 전송
+3. API 테스트 (완전한 예약 플로우)
+```bash
+./test-api.sh
+```
+
+4. 기존 Kafka 이벤트 방식 테스트
 ```bash
 ./request.sh
 ```
@@ -63,11 +68,77 @@ cd jaeger-airline
 | Jaeger Collector | 4317 (gRPC), 4318 (HTTP) |
 | Jaeger Query UI | 16686 |
 
+### 🎯 새로운 기능: OpenFeign 기반 동기식 API 통신
+
+#### REST API 엔드포인트
+
+**Flight Service (항공편 조회)**
+```http
+GET  /v1/flights?from={출발지}&to={도착지}&date={날짜}
+GET  /v1/flights/{flightId}
+POST /v1/flights/{flightId}/availability
+POST /v1/flights/{flightId}/reserve
+POST /v1/flights/{flightId}/release
+```
+
+**Reservation Service (예약 오케스트레이션)**
+```http
+POST /v1/reservations                    # 완전한 예약 플로우
+GET  /v1/reservations/{reservationId}    # 예약 조회
+POST /v1/reservations/{reservationId}/cancel  # 예약 취소
+```
+
+**Payment Service (결제)**
+```http
+POST /v1/payments                        # 결제 요청
+GET  /v1/payments/{paymentId}            # 결제 상태 조회
+POST /v1/payments/{paymentId}/cancel     # 결제 취소
+```
+
+**Ticket Service (티켓 발급)**
+```http
+POST /v1/tickets                         # 티켓 발급
+GET  /v1/tickets/{ticketId}              # 티켓 조회
+POST /v1/tickets/{ticketId}/cancel       # 티켓 취소
+```
+
+#### 예약 요청 예시
+```json
+{
+  "flightId": "KE123",
+  "passengerInfo": {
+    "name": "홍길동",
+    "email": "hong@example.com",
+    "phone": "010-1234-5678"
+  },
+  "seatPreference": "WINDOW",
+  "paymentMethod": "CREDIT_CARD"
+}
+```
+
+### 🔄 서비스 간 통신 플로우
+1. **예약 요청**: Reservation Service가 모든 서비스를 오케스트레이션
+2. **항공편 확인**: Flight Service에서 좌석 가용성 체크
+3. **좌석 예약**: 임시 좌석 점유
+4. **결제 처리**: Payment Service로 결제 진행
+5. **티켓 발급**: 결제 성공 시 Ticket Service에서 티켓 생성
+6. **예약 완료**: 모든 단계 성공 시 확정
+
+### 🛡️ 장애 처리 및 복원력 패턴
+- **Circuit Breaker**: 서비스 장애 시 빠른 실패 처리
+- **보상 트랜잭션 (Saga)**: 부분 실패 시 롤백 처리
+- **Retry**: 일시적 장애에 대한 재시도
+- **Timeout**: 응답 지연 방지
+
 ### 분산 추적 테스트
-1. API 호출을 통해 서비스 간 상호작용 유발
+1. **완전한 예약 플로우 테스트**
+   ```bash
+   ./test-api.sh
+   ```
 2. http://localhost:16686에서 Jaeger UI 열기
 3. 추적 데이터를 검색하여 서비스 간 요청 플로우 시각화
 4. 성능 병목지점 및 서비스 의존성 분석
+5. Circuit Breaker 상태 확인: `http://localhost:8083/actuator/health`
 
 ### 프로젝트 구조
 ```
