@@ -1,7 +1,7 @@
 plugins {
 	kotlin("jvm") version "1.9.25"
 	kotlin("plugin.spring") version "1.9.25"
-	id("org.springframework.boot") version "3.5.4"
+	id("org.springframework.boot") version "3.3.5"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -17,6 +17,7 @@ java {
 dependencyManagement{
 	imports {
 		mavenBom ("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0")
+		mavenBom ("org.springframework.cloud:spring-cloud-dependencies:2023.0.3")
 	}
 }
 
@@ -39,6 +40,12 @@ dependencies {
 	implementation ("org.springframework.boot:spring-boot-starter-web")
 	implementation ("org.springframework.boot:spring-boot-starter-aop")
 	implementation ("org.springframework.kafka:spring-kafka")
+
+	// OpenFeign
+	implementation ("org.springframework.cloud:spring-cloud-starter-openfeign")
+	
+	// Circuit Breaker
+	implementation ("io.github.resilience4j:resilience4j-spring-boot3")
 
 	annotationProcessor ("org.springframework.boot:spring-boot-configuration-processor")
 
