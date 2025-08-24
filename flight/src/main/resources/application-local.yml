@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: flight
+  cloud:
+    compatibility-verifier:
+      enabled: false
+  kafka:
+    consumer:
+      auto-startup: false # Flight doesn't have consumers
+    producer:
+      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+
+server:
+  port: 8080
+
+# Management endpoints for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Disable OTEL for local development  
+otel:
+  traces:
+    exporter: none
+  logs:
+    exporter: none
+  metrics:
+    exporter: none
