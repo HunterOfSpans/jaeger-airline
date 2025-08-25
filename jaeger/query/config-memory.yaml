@@ -1,0 +1,45 @@
+service:
+  extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+  pipelines:
+    traces:
+      receivers: [nop]
+      processors: [batch]
+      exporters: [nop]
+  telemetry:
+    resource:
+      service.name: jaeger-query
+    logs:
+      level: info
+
+extensions:
+  healthcheckv2:
+    use_v2: true
+    http:
+      endpoint: 0.0.0.0:16687
+
+  jaeger_storage:
+    backends:
+      memory:
+        memory:
+          max_traces: 50000
+
+  jaeger_query:
+    storage:
+      traces: memory
+    base_path: /
+    ui:
+      config_file: etc/jaeger/ui-config.json
+      log_access: true
+    grpc:
+      endpoint: 0.0.0.0:16685
+    http:
+      endpoint: 0.0.0.0:16686
+
+receivers:
+  nop:
+
+processors:
+  batch:
+
+exporters:
+  nop:
