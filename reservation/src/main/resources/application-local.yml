@@ -3,9 +3,9 @@ spring:
     consumer:
       enable-auto-commit: true
       auto-commit-interval: 1000
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
     producer:
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
 # Service URLs for local development
 services:
@@ -16,10 +16,14 @@ services:
   ticket:
     url: http://localhost:8081
 
-# Disable OTEL for local development
+# Enable OTEL for Docker deployment
 otel:
+  exporter:
+    otlp:
+      protocol: grpc
+      endpoint: http://collector:4317
   traces:
-    exporter: none
+    exporter: otlp
   logs:
     exporter: none
   metrics:

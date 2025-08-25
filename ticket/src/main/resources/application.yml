@@ -8,9 +8,9 @@ spring:
     consumer:
       enable-auto-commit: true
       auto-commit-interval: 1000
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
     producer:
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
 server:
   port: 8081

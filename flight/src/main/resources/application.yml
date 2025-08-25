@@ -9,17 +9,22 @@ spring:
       enable-auto-commit: true
       auto-commit-interval: 1000
     producer:
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
 
-otel:
-  exporter:
-    otlp:
-      protocol: grpc
-      endpoint: http://collector:4317
-  traces:
-    exporter: otlp
-  logs:
-    exporter: none
-  metrics:
-    exporter: none
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env,configprops,beans,loggers
+
+# Enable debug logging for OTEL
+logging:
+  level:
+    io.opentelemetry: DEBUG
+    io.opentelemetry.exporter: TRACE
+    io.opentelemetry.exporter.otlp: TRACE
+    io.opentelemetry.instrumentation: DEBUG
+    io.opentelemetry.sdk: DEBUG
+
+# OTEL configuration is handled via environment variables

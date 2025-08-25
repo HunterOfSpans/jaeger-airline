@@ -8,7 +8,7 @@ spring:
     consumer:
       auto-startup: false # Flight doesn't have consumers
     producer:
-      bootstrap-servers: localhost:10000,localhost:10001,localhost:10002
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
 server:
   port: 8080
@@ -20,10 +20,14 @@ management:
       exposure:
         include: health,info
 
-# Disable OTEL for local development  
+# Enable OTEL for Docker deployment
 otel:
+  exporter:
+    otlp:
+      protocol: grpc
+      endpoint: http://collector:4317
   traces:
-    exporter: none
+    exporter: otlp
   logs:
     exporter: none
   metrics:
