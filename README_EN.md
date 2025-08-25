@@ -54,7 +54,7 @@ cd reservation && ./gradlew bootRun --args='--spring.profiles.active=local'
 | Payment Service | 8082 | http://localhost:8082/actuator/health |
 | Reservation Service | 8083 | http://localhost:8083/actuator/health |
 | Jaeger UI | 16686 | http://localhost:16686 |
-| Kafka UI | 9021 | http://localhost:9021 |
+| Kafka UI | 8085 | http://localhost:8085 |
 
 ## 🔄 MSA Pattern Implementations
 
@@ -207,7 +207,7 @@ curl http://localhost:8083/actuator/health
 ```
 
 ### Kafka Consumer Status Verification
-- Kafka UI: http://localhost:9021
+- Kafka UI: http://localhost:8085
 - Topics: `reservation.created`, `payment.approved`, `ticket.issued`
 
 ## 🧪 Test Scenarios
