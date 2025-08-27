@@ -32,18 +32,14 @@ git clone https://github.com/HunterOfSpans/jaeger-airline.git
 cd jaeger-airline
 ```
 
-### 2. Start Kafka Cluster
+### 2. Start all services 
 ```bash
-docker-compose -f docker-compose-kafka.yml up -d
+./build-and-run.sh
 ```
 
-### 3. Build and Run Services
+### 3. Sending an example request to verify distributed tracing
 ```bash
-# Run each service in separate terminals
-cd flight && ./gradlew bootRun --args='--spring.profiles.active=local'
-cd payment && ./gradlew bootRun --args='--spring.profiles.active=local'  
-cd ticket && ./gradlew bootRun --args='--spring.profiles.active=local'
-cd reservation && ./gradlew bootRun --args='--spring.profiles.active=local'
+./request.sh
 ```
 
 ### 4. Service Access Points
