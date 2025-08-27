@@ -7,8 +7,6 @@ spring:
   kafka:
     consumer:
       auto-startup: false # Flight doesn't have consumers
-    producer:
-      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
 server:
   port: 8080

@@ -12,9 +12,6 @@ services:
       - ES_JAVA_OPTS=-Xms128m -Xmx128m
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - xpack.monitoring.enabled=false
-      - xpack.ml.enabled=false
-      - xpack.watcher.enabled=false
     deploy:
       resources:
         limits:
@@ -94,25 +91,13 @@ services:
       - jaeger
     environment:
       - JAVA_OPTS=-Xmx384m -Xms256m
-      - SPRING_PROFILES_ACTIVE=default
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
-      - OTEL_SERVICE_NAME=flight
-      - OTEL_TRACES_SAMPLER=always_on
-      - OTEL_INSTRUMENTATION_HTTP_ENABLED=true
-      - OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED=true
-      - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_EXPORTER_OTLP_TIMEOUT=10000
     deploy:
       resources:
         limits:
           memory: 500m
     restart: unless-stopped
     depends_on:
-      - jaeger-collector
+      - collector
 
   ticket:
     build:
@@ -124,25 +109,13 @@ services:
       - jaeger
     environment:
       - JAVA_OPTS=-Xmx384m -Xms256m
-      - SPRING_PROFILES_ACTIVE=default
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
-      - OTEL_SERVICE_NAME=ticket
-      - OTEL_TRACES_SAMPLER=always_on
-      - OTEL_INSTRUMENTATION_HTTP_ENABLED=true
-      - OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED=true
-      - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_EXPORTER_OTLP_TIMEOUT=10000
     deploy:
       resources:
         limits:
           memory: 500m
     restart: unless-stopped
     depends_on:
-      - jaeger-collector
+      - collector
 
   payment:
     build:
@@ -154,25 +127,13 @@ services:
       - jaeger
     environment:
       - JAVA_OPTS=-Xmx384m -Xms256m
-      - SPRING_PROFILES_ACTIVE=default
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
-      - OTEL_SERVICE_NAME=payment
-      - OTEL_TRACES_SAMPLER=always_on
-      - OTEL_INSTRUMENTATION_HTTP_ENABLED=true
-      - OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED=true
-      - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_EXPORTER_OTLP_TIMEOUT=10000
     deploy:
       resources:
         limits:
           memory: 500m
     restart: unless-stopped
     depends_on:
-      - jaeger-collector
+      - collector
 
   reservation:
     build:
@@ -184,41 +145,44 @@ services:
       - jaeger
     environment:
       - JAVA_OPTS=-Xmx384m -Xms256m
-      - SPRING_PROFILES_ACTIVE=default
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector:4318
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - OTEL_TRACES_EXPORTER=otlp
-      - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
-      - OTEL_SERVICE_NAME=reservation
-      - OTEL_TRACES_SAMPLER=always_on
-      - OTEL_INSTRUMENTATION_HTTP_ENABLED=true
-      - OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED=true
-      - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_EXPORTER_OTLP_TIMEOUT=10000
     deploy:
       resources:
         limits:
           memory: 500m
     restart: unless-stopped
     depends_on:
-      - jaeger-collector
+      - collector
 
-  jaeger-collector:
+  collector:
     build:
       context: ./jaeger/collector
-    container_name: jaeger-collector
+    container_name: collector
     ports:
-      - "4317:4317" # OTLP grpc
-      - "4318:4318" # OTLP http
-      - "14269:14269" # Health check
-      - "16685:16685" # Jaeger gRPC
-      - "16686:16686" # Jaeger UI (Query interface)
+      - "4317:4317" # grpc
+      - "4318:4318" # http
+      - "5778:5778" # remote sampling http
+      - "5779:5779" # remote sampling grpc
+      - "14269:14269" # healthcheck
     restart: unless-stopped
     networks:
       - jaeger
+    depends_on:
+      - elasticsearch
     command: ["--config", "/jaeger/config.yaml"]
 
+  query:
+    build:
+      context: ./jaeger/query
+    container_name: query
+    ports:
+      - "16686:16686" # ui port
+      - "16687:16687" # healthcheck
+    restart: unless-stopped
+    networks:
+      - jaeger
+    depends_on:
+      - elasticsearch
+      
 networks:
   jaeger:
     driver: bridge
