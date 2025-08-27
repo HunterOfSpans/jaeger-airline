@@ -32,18 +32,14 @@ git clone https://github.com/HunterOfSpans/jaeger-airline.git
 cd jaeger-airline
 ```
 
-### 2. Kafka 클러스터 시작
+### 2. 모든 서비스 시작
 ```bash
-docker-compose -f docker-compose-kafka.yml up -d
+./build-and-run.sh
 ```
 
-### 3. 서비스 빌드 및 실행
+### 3. 분산 추적 확인을 위한 예시 요청 전송
 ```bash
-# 각 서비스를 별도 터미널에서 실행
-cd flight && ./gradlew bootRun --args='--spring.profiles.active=local'
-cd payment && ./gradlew bootRun --args='--spring.profiles.active=local'
-cd ticket && ./gradlew bootRun --args='--spring.profiles.active=local'
-cd reservation && ./gradlew bootRun --args='--spring.profiles.active=local'
+./request.sh
 ```
 
 ### 4. 서비스 접근 포인트
