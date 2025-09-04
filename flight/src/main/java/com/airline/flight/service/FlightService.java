@@ -23,6 +23,14 @@ public class FlightService {
     }
     
     private void initializeFlights() {
+        // 분산 추적 테스트용 항공편
+        flights.put("KE001", new FlightDto(
+            "KE001", "Korean Air", "ICN", "PUS",
+            LocalDateTime.now().plusHours(3),
+            LocalDateTime.now().plusHours(4).plusMinutes(30),
+            new BigDecimal("120000"), 180, "Boeing 737"
+        ));
+        
         flights.put("KE123", new FlightDto(
             "KE123", "Korean Air", "ICN", "NRT",
             LocalDateTime.now().plusDays(1),
@@ -42,6 +50,14 @@ public class FlightService {
             LocalDateTime.now().plusDays(3),
             LocalDateTime.now().plusDays(3).plusHours(11),
             new BigDecimal("950000"), 180, "Boeing 747"
+        ));
+        
+        // 추가 분산 추적 테스트용 항공편들
+        flights.put("NON_EXISTENT_FLIGHT", new FlightDto(
+            "NON_EXISTENT_FLIGHT", "Test Airline", "ICN", "TEST",
+            LocalDateTime.now().plusDays(10),
+            LocalDateTime.now().plusDays(10).plusHours(1),
+            new BigDecimal("1"), 1, "Test Aircraft"
         ));
     }
     
