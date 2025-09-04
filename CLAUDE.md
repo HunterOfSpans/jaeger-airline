@@ -109,7 +109,30 @@ jaeger-airline/
 └── README.md                 # 상세 문서
 ```
 
-## Claude Code에서 자주 사용할 명령어
+## 분산 추적 테스트 명령어
+
+### OpenFeign 동기 추적 테스트
+```bash
+./test-feign-tracing.sh          # OpenFeign 기반 동기 호출 체인 테스트
+```
+**엔드포인트:**
+- `POST /v1/tracing/feign/simple-flow` - 간단한 동기 호출 체인
+- `POST /v1/tracing/feign/complex-flow` - 복잡한 예약 프로세스 (Circuit Breaker 포함)
+- `POST /v1/tracing/feign/circuit-breaker-test` - Circuit Breaker 동작 테스트
+- `POST /v1/tracing/feign/parallel-calls` - 병렬 호출 테스트
+
+### Kafka 비동기 추적 테스트
+```bash
+./test-kafka-tracing.sh          # Kafka 기반 이벤트 체인 테스트
+```
+**엔드포인트:**
+- `POST /v1/tracing/kafka/simple-events` - 간단한 이벤트 체인
+- `POST /v1/tracing/kafka/complex-events` - 복잡한 이벤트 플로우
+- `POST /v1/tracing/kafka/failure-compensation` - 실패/보상 트랜잭션
+- `POST /v1/tracing/kafka/multi-topic-events` - 다중 토픽 이벤트
+- `GET /v1/tracing/kafka/event-status/{eventId}` - 이벤트 처리 상태 조회
+
+### 기본 명령어
 - `./gradlew build` - 프로젝트 빌드
 - `docker compose up -d` - 서비스 시작
 - `curl [API_URL]` - API 테스트
