@@ -26,4 +26,14 @@ logging:
     io.opentelemetry.instrumentation: DEBUG
     io.opentelemetry.sdk: DEBUG
 
-# OTEL configuration is handled via environment variables
+otel:
+  exporter:
+    otlp:
+      protocol: grpc
+      endpoint: http://collector:4317
+  traces:
+    exporter: otlp
+  logs:
+    exporter: none
+  metrics:
+    exporter: none
