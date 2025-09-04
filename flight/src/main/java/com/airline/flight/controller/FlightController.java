@@ -5,11 +5,13 @@ import com.airline.flight.dto.AvailabilityResponse;
 import com.airline.flight.dto.FlightDto;
 import com.airline.flight.service.FlightService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/v1/flights")
 @RequiredArgsConstructor
@@ -33,10 +35,16 @@ public class FlightController {
     
     @GetMapping("/{flightId}")
     public ResponseEntity<FlightDto> getFlightById(@PathVariable String flightId) {
+        log.info("Processing flight lookup for flightId: {}", flightId);
         FlightDto flight = flightService.getFlightById(flightId);
+        
         if (flight == null) {
+            log.warn("Flight not found: {}", flightId);
             return ResponseEntity.notFound().build();
         }
+        
+        log.info("Flight lookup successful for flightId: {}, airline: {}, price: {}", 
+                flightId, flight.getAirline(), flight.getPrice());
         return ResponseEntity.ok(flight);
     }
     
