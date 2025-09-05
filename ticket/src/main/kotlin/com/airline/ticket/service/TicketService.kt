@@ -3,19 +3,22 @@ package com.airline.ticket.service
 import com.airline.ticket.dto.TicketRequest
 import com.airline.ticket.dto.TicketResponse
 import com.airline.ticket.dto.TicketStatus
+import com.airline.ticket.entity.Ticket
+import com.airline.ticket.mapper.TicketMapper
+import com.airline.ticket.repository.TicketRepository
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class TicketService (
-    private val kafkaTemplate: KafkaTemplate<String, String>
+    private val kafkaTemplate: KafkaTemplate<String, String>,
+    private val ticketRepository: TicketRepository,
+    private val ticketMapper: TicketMapper
 ){
     private val logger = LoggerFactory.getLogger(TicketService::class.java)
-    private val tickets = ConcurrentHashMap<String, TicketResponse>()
     
     fun issueTicket(request: TicketRequest): TicketResponse {
         logger.info("Issuing ticket for reservation: {}, flight: {}", 
@@ -24,45 +27,35 @@ class TicketService (
         val ticketId = "TKT-${UUID.randomUUID().toString().take(8)}"
         val seatNumber = request.seatNumber ?: generateSeatNumber()
         
-        val response = TicketResponse(
-            ticketId = ticketId,
-            status = TicketStatus.ISSUED,
-            reservationId = request.reservationId,
-            paymentId = request.paymentId,
-            flightId = request.flightId,
-            passengerInfo = request.passengerInfo,
-            seatNumber = seatNumber,
-            issuedAt = LocalDateTime.now(),
-            message = "Ticket issued successfully"
-        )
-        
-        // 티켓 정보 저장
-        tickets[ticketId] = response
+        // 엔티티 생성 및 저장
+        val ticket = ticketMapper.toEntity(request, ticketId, seatNumber)
+        val savedTicket = ticketRepository.save(ticket)
         
         // Kafka 이벤트 발송 (기존 로직)
         kafkaTemplate.send("ticket.issued", "Ticket issued for reservation: ${request.reservationId}")
         
         logger.info("Ticket issued: {} for seat {}", ticketId, seatNumber)
-        return response
+        return ticketMapper.toResponse(savedTicket)
     }
     
     fun getTicketById(ticketId: String): TicketResponse? {
-        return tickets[ticketId]
+        val ticket = ticketRepository.findById(ticketId)
+        return ticket?.let { ticketMapper.toResponse(it) }
     }
     
     fun cancelTicket(ticketId: String): TicketResponse? {
-        val ticket = tickets[ticketId]
+        val ticket = ticketRepository.findById(ticketId)
+        
         if (ticket != null && ticket.status == TicketStatus.ISSUED) {
-            val cancelledTicket = ticket.copy(
-                status = TicketStatus.CANCELLED,
-                message = "Ticket cancelled"
-            )
-            tickets[ticketId] = cancelledTicket
+            ticket.status = TicketStatus.CANCELLED
+            ticket.message = "Ticket cancelled"
+            
+            val cancelledTicket = ticketRepository.save(ticket)
             
             // 취소 이벤트 발송
             kafkaTemplate.send("ticket.cancelled", "Ticket cancelled: $ticketId")
             logger.info("Ticket cancelled: {}", ticketId)
-            return cancelledTicket
+            return ticketMapper.toResponse(cancelledTicket)
         }
         return null
     }

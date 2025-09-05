@@ -3,20 +3,23 @@ package com.airline.payment.service
 import com.airline.payment.dto.PaymentRequest
 import com.airline.payment.dto.PaymentResponse
 import com.airline.payment.dto.PaymentStatus
+import com.airline.payment.entity.Payment
+import com.airline.payment.mapper.PaymentMapper
+import com.airline.payment.repository.PaymentRepository
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class PaymentService (
-    private val kafkaTemplate: KafkaTemplate<String, String>
+    private val kafkaTemplate: KafkaTemplate<String, String>,
+    private val paymentRepository: PaymentRepository,
+    private val paymentMapper: PaymentMapper
 ) {
     private val logger = LoggerFactory.getLogger(PaymentService::class.java)
-    private val payments = ConcurrentHashMap<String, PaymentResponse>()
     
     fun processPayment(request: PaymentRequest): PaymentResponse {
         logger.info("Processing payment for reservation: {}, amount: {}", 
@@ -24,50 +27,46 @@ class PaymentService (
         
         val paymentId = "PAY-${UUID.randomUUID().toString().take(8)}"
         
+        // 엔티티 생성
+        val payment = paymentMapper.toEntity(request, paymentId)
+        
         // 간단한 결제 로직 (실제로는 외부 결제 시스템 연동)
         val isSuccessful = simulatePaymentProcessing(request)
         
-        val status = if (isSuccessful) PaymentStatus.SUCCESS else PaymentStatus.FAILED
-        val message = if (isSuccessful) "Payment completed successfully" else "Payment failed"
-        
-        val response = PaymentResponse(
-            paymentId = paymentId,
-            status = status,
-            amount = request.amount,
-            reservationId = request.reservationId,
-            processedAt = LocalDateTime.now(),
-            message = message
-        )
+        // 결제 결과 업데이트
+        payment.status = if (isSuccessful) PaymentStatus.SUCCESS else PaymentStatus.FAILED
+        payment.message = if (isSuccessful) "Payment completed successfully" else "Payment failed"
         
         // 결제 정보 저장
-        payments[paymentId] = response
+        val savedPayment = paymentRepository.save(payment)
         
         // Kafka 이벤트 발송 (기존 로직)
         if (isSuccessful) {
             kafkaTemplate.send("payment.approved", "Payment approved for reservation: ${request.reservationId}")
         }
         
-        logger.info("Payment processed: {} - {}", paymentId, status)
-        return response
+        logger.info("Payment processed: {} - {}", paymentId, savedPayment.status)
+        return paymentMapper.toResponse(savedPayment)
     }
     
     fun getPaymentById(paymentId: String): PaymentResponse? {
-        return payments[paymentId]
+        val payment = paymentRepository.findById(paymentId)
+        return payment?.let { paymentMapper.toResponse(it) }
     }
     
     fun cancelPayment(paymentId: String): PaymentResponse? {
-        val payment = payments[paymentId]
+        val payment = paymentRepository.findById(paymentId)
+        
         if (payment != null && payment.status == PaymentStatus.SUCCESS) {
-            val cancelledPayment = payment.copy(
-                status = PaymentStatus.CANCELLED,
-                message = "Payment cancelled"
-            )
-            payments[paymentId] = cancelledPayment
+            payment.status = PaymentStatus.CANCELLED
+            payment.message = "Payment cancelled"
+            
+            val cancelledPayment = paymentRepository.save(payment)
             
             // 취소 이벤트 발송
             kafkaTemplate.send("payment.cancelled", "Payment cancelled: $paymentId")
             logger.info("Payment cancelled: {}", paymentId)
-            return cancelledPayment
+            return paymentMapper.toResponse(cancelledPayment)
         }
         return null
     }
