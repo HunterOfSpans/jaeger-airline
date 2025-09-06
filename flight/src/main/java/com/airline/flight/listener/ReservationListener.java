@@ -1,9 +1,11 @@
 package com.airline.flight.listener;
 
 import com.airline.flight.annotation.KafkaOtelTrace;
+import com.airline.flight.exception.KafkaMessageProcessingException;
 import com.airline.flight.service.FlightService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -29,52 +31,76 @@ public class ReservationListener {
         recordMessageContent = true
     )
     public void handleReservationRequested(ConsumerRecord<String, String> record) {
+        log.info("Received reservation.requested event: {}", record.value());
+        
+        JsonNode reservationData = parseMessageData(record.value());
+        String reservationId = reservationData.get("reservationId").asText();
+        String flightId = reservationData.get("flightId").asText();
+        int requestedSeats = reservationData.get("requestedSeats").asInt();
+        
+        log.info("Processing seat reservation for reservationId: {}, flightId: {}, seats: {}", 
+                reservationId, flightId, requestedSeats);
+        
+        processReservationRequest(reservationId, flightId, requestedSeats);
+    }
+    
+    /**
+     * 메시지 데이터를 파싱합니다.
+     */
+    private JsonNode parseMessageData(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            throw new KafkaMessageProcessingException("Message cannot be null or empty");
+        }
+        
         try {
-            log.info("Received reservation.requested event: {}", record.value());
-            
-            JsonNode reservationData = objectMapper.readTree(record.value());
-            String reservationId = reservationData.get("reservationId").asText();
-            String flightId = reservationData.get("flightId").asText();
-            int requestedSeats = reservationData.get("requestedSeats").asInt();
-            
-            log.info("Processing seat reservation for reservationId: {}, flightId: {}, seats: {}", 
-                    reservationId, flightId, requestedSeats);
-            
-            // 좌석 예약 처리
-            boolean seatReserved = flightService.reserveSeats(flightId, requestedSeats);
-            
-            if (seatReserved) {
-                // seat.reserved 이벤트 발행
-                var eventData = Map.of(
-                    "reservationId", reservationId,
-                    "flightId", flightId,
-                    "reservedSeats", requestedSeats,
-                    "seatReservationStatus", "CONFIRMED",
-                    "timestamp", System.currentTimeMillis()
-                );
-                String seatReservedEvent = objectMapper.writeValueAsString(eventData);
-                
-                kafkaTemplate.send("seat.reserved", reservationId, seatReservedEvent);
-                log.info("Published seat.reserved event for reservationId: {} with data: {}", reservationId, seatReservedEvent);
-            } else {
-                // seat.reservation.failed 이벤트 발행
-                var failedData = Map.of(
-                    "reservationId", reservationId,
-                    "flightId", flightId,
-                    "requestedSeats", requestedSeats,
-                    "seatReservationStatus", "FAILED",
-                    "reason", "No seats available",
-                    "timestamp", System.currentTimeMillis()
-                );
-                String failedEvent = objectMapper.writeValueAsString(failedData);
-                
-                kafkaTemplate.send("seat.reservation.failed", reservationId, failedEvent);
-                log.warn("Published seat.reservation.failed event for reservationId: {} with data: {}", reservationId, failedEvent);
-            }
-            
-        } catch (Exception e) {
-            log.error("Error processing reservation.requested event", e);
-            throw new RuntimeException("Failed to process reservation request", e);
+            return objectMapper.readTree(message);
+        } catch (JsonProcessingException e) {
+            throw new KafkaMessageProcessingException("Failed to parse JSON message", e);
+        }
+    }
+    
+    /**
+     * 예약 요청을 처리하고 적절한 이벤트를 발행합니다.
+     */
+    private void processReservationRequest(String reservationId, String flightId, int requestedSeats) {
+        validateReservationData(reservationId, flightId, requestedSeats);
+        flightService.reserveSeats(flightId, requestedSeats);
+        publishSeatReservedEvent(reservationId, flightId, requestedSeats);
+    }
+    
+    /**
+     * 예약 데이터를 검증합니다.
+     */
+    private void validateReservationData(String reservationId, String flightId, int requestedSeats) {
+        if (reservationId == null || reservationId.trim().isEmpty()) {
+            throw new KafkaMessageProcessingException("Reservation ID cannot be null or empty");
+        }
+        if (flightId == null || flightId.trim().isEmpty()) {
+            throw new KafkaMessageProcessingException("Flight ID cannot be null or empty");
+        }
+        if (requestedSeats <= 0) {
+            throw new KafkaMessageProcessingException("Requested seats must be greater than 0");
+        }
+    }
+    
+    /**
+     * 좌석 예약 성공 이벤트를 발행합니다.
+     */
+    private void publishSeatReservedEvent(String reservationId, String flightId, int reservedSeats) {
+        var eventData = Map.of(
+            "reservationId", reservationId,
+            "flightId", flightId,
+            "reservedSeats", reservedSeats,
+            "seatReservationStatus", "CONFIRMED",
+            "timestamp", System.currentTimeMillis()
+        );
+        
+        try {
+            String seatReservedEvent = objectMapper.writeValueAsString(eventData);
+            kafkaTemplate.send("seat.reserved", reservationId, seatReservedEvent);
+            log.info("Published seat.reserved event for reservationId: {} with data: {}", reservationId, seatReservedEvent);
+        } catch (JsonProcessingException e) {
+            throw new KafkaMessageProcessingException("Failed to serialize event data", e);
         }
     }
 }

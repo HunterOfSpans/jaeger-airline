@@ -94,47 +94,46 @@ class FeignTracingService(
     fun executeComplexFeignFlow(flightId: String, passengerName: String): Map<String, Any> {
         logger.info("Starting complex Feign flow for flightId: {}, passenger: {} (auto instrumentation)", flightId, passengerName)
         
-        try {
-            
-            val results = mutableMapOf<String, Any>()
-            val reservationId = "RES-COMPLEX-${UUID.randomUUID().toString().take(8)}"
-            
-            // 1. 항공편 조회
-            val flight = flightClient.getFlightById(flightId)
-                ?: throw RuntimeException("Flight not found: $flightId")
-            
-            // 2. 좌석 가용성 확인
-            val availability = flightClient.checkAvailability(flightId, AvailabilityRequest(requestedSeats = 1))
-            if (!availability.available) {
-                throw RuntimeException("No seats available for flight: $flightId")
-            }
-            
-            // 3. 좌석 예약
-            flightClient.reserveSeats(flightId, AvailabilityRequest(requestedSeats = 1))
-            
-            // 4. 결제 처리
-            val paymentRequest = PaymentRequest(
-                reservationId = reservationId,
-                amount = flight.price,
-                paymentMethod = "CARD",
-                customerInfo = CustomerInfo(name = passengerName, email = "$passengerName@test.com")
+        val reservationId = "RES-COMPLEX-${UUID.randomUUID().toString().take(8)}"
+        
+        // 1. 항공편 조회
+        val flight = flightClient.getFlightById(flightId)
+            ?: throw RuntimeException("Flight not found: $flightId")
+        
+        // 2. 좌석 가용성 확인
+        val availability = flightClient.checkAvailability(flightId, AvailabilityRequest(requestedSeats = 1))
+        if (!availability.available) {
+            throw RuntimeException("No seats available for flight: $flightId")
+        }
+        
+        // 3. 좌석 예약
+        flightClient.reserveSeats(flightId, AvailabilityRequest(requestedSeats = 1))
+        
+        // 4. 결제 처리
+        val paymentRequest = PaymentRequest(
+            reservationId = reservationId,
+            amount = flight.price,
+            paymentMethod = "CARD",
+            customerInfo = CustomerInfo(name = passengerName, email = "$passengerName@test.com")
+        )
+        val paymentResult = paymentClient.processPayment(paymentRequest)
+        
+        // 5. 티켓 발급
+        val ticketRequest = TicketRequest(
+            reservationId = reservationId,
+            paymentId = paymentResult.paymentId,
+            flightId = flightId,
+            passengerInfo = TicketPassengerInfo(
+                name = passengerName,
+                email = "$passengerName@test.com",
+                phone = "010-1234-5678",
+                passportNumber = "M${Random().nextInt(90000000) + 10000000}"
             )
-            val paymentResult = paymentClient.processPayment(paymentRequest)
-            
-            // 5. 티켓 발급
-            val ticketRequest = TicketRequest(
-                reservationId = reservationId,
-                paymentId = paymentResult.paymentId,
-                flightId = flightId,
-                passengerInfo = TicketPassengerInfo(
-                    name = passengerName,
-                    email = "$passengerName@test.com",
-                    phone = "010-1234-5678",
-                    passportNumber = "M${Random().nextInt(90000000) + 10000000}"
-                )
-            )
-            val ticketResult = ticketClient.issueTicket(ticketRequest)
-            
+        )
+        val ticketResult = ticketClient.issueTicket(ticketRequest)
+        
+        logger.info("Complex Feign flow completed for reservationId: {}", reservationId)
+        
         return mapOf(
             "reservationId" to reservationId,
             "flight" to mapOf("id" to flight.flightId, "price" to flight.price),
@@ -142,24 +141,6 @@ class FeignTracingService(
             "ticket" to mapOf("id" to ticketResult.ticketId, "seat" to ticketResult.seatNumber),
             "status" to "completed"
         )
-        
-        logger.info("Complex Feign flow completed for reservationId: {}", reservationId)
-        
-        } catch (e: Exception) {
-            logger.error("Complex Feign flow failed", e)
-            
-            // 보상 트랜잭션
-            try {
-                flightClient.releaseSeats(flightId, AvailabilityRequest(requestedSeats = 1))
-            } catch (releaseEx: Exception) {
-                logger.error("Failed to release seats during compensation", releaseEx)
-            }
-            
-            return mapOf(
-                "error" to (e.message ?: "Unknown error"),
-                "status" to "failed"
-            )
-        }
     }
     
     /**
@@ -179,17 +160,8 @@ class FeignTracingService(
      * Circuit Breaker 테스트 플로우
      */
     fun testCircuitBreakerFlow(): Map<String, Any> {
-        return try {
-            val result = executeComplexFeignFlow("NON_EXISTENT_FLIGHT", "Circuit Test User")
-            result.toMutableMap().apply { put("testType", "circuit_breaker") }
-            result
-        } catch (e: Exception) {
-            mapOf(
-                "testType" to "circuit_breaker",
-                "error" to (e.message ?: "Circuit breaker test failed"),
-                "status" to "failed"
-            )
-        }
+        val result = executeComplexFeignFlow("NON_EXISTENT_FLIGHT", "Circuit Test User")
+        return result.toMutableMap().apply { put("testType", "circuit_breaker") }
     }
     
     /**

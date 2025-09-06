@@ -93,18 +93,15 @@ public class FlightController {
      * 
      * @param flightId 항공편 식별자
      * @param request  좌석 예약 요청 (예약 좌석 수 포함)
-     * @return 예약 성공 시 200 OK, 실패 시 400 Bad Request
+     * @return 예약 성공 시 200 OK
      */
     @PostMapping("/{flightId}/reserve")
     public ResponseEntity<Void> reserveSeats(
             @PathVariable String flightId,
             @RequestBody AvailabilityRequest request) {
         
-        boolean success = flightService.reserveSeats(flightId, request.getRequestedSeats());
-        if (success) {
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.badRequest().build();
+        flightService.reserveSeats(flightId, request.getRequestedSeats());
+        return ResponseEntity.ok().build();
     }
     
     /**

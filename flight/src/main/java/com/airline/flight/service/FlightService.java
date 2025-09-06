@@ -4,6 +4,9 @@ import com.airline.flight.dto.AvailabilityRequest;
 import com.airline.flight.dto.AvailabilityResponse;
 import com.airline.flight.dto.FlightDto;
 import com.airline.flight.entity.Flight;
+import com.airline.flight.exception.FlightNotFoundException;
+import com.airline.flight.exception.InsufficientSeatsException;
+import com.airline.flight.exception.InvalidRequestException;
 import com.airline.flight.mapper.FlightMapper;
 import com.airline.flight.repository.FlightRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,12 +34,12 @@ public class FlightService {
         log.info("Getting flight by ID: {}", flightId);
         
         if (flightId == null || flightId.trim().isEmpty()) {
-            log.warn("Invalid flight ID provided: {}", flightId);
-            return null;
+            throw new InvalidRequestException("Flight ID cannot be null or empty");
         }
         
         Optional<Flight> flight = flightRepository.findById(flightId);
-        return flight.map(flightMapper::toDto).orElse(null);
+        return flight.map(flightMapper::toDto)
+                .orElseThrow(() -> new FlightNotFoundException(flightId));
     }
     
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
@@ -44,19 +47,16 @@ public class FlightService {
                 request.getFlightId(), request.getRequestedSeats());
         
         if (request == null || request.getFlightId() == null || request.getRequestedSeats() == null) {
-            log.warn("Invalid availability request: {}", request);
-            return new AvailabilityResponse(false, 
-                request != null ? request.getFlightId() : "unknown", 0, "Invalid request");
+            throw new InvalidRequestException("Request, flight ID, and requested seats cannot be null");
         }
         
         if (request.getRequestedSeats() <= 0) {
-            log.warn("Invalid seat count requested: {}", request.getRequestedSeats());
-            return new AvailabilityResponse(false, request.getFlightId(), 0, "Invalid seat count");
+            throw new InvalidRequestException("Requested seats must be greater than 0");
         }
         
         Optional<Flight> flightOpt = flightRepository.findById(request.getFlightId());
         if (flightOpt.isEmpty()) {
-            return new AvailabilityResponse(false, request.getFlightId(), 0, "Flight not found");
+            throw new FlightNotFoundException(request.getFlightId());
         }
         
         Flight flight = flightOpt.get();
@@ -67,57 +67,59 @@ public class FlightService {
                                       flight.getAvailableSeats(), message);
     }
     
-    public synchronized boolean reserveSeats(String flightId, Integer seats) {
+    public synchronized void reserveSeats(String flightId, Integer seats) {
         log.info("Reserving {} seats for flight {}", seats, flightId);
         
         if (seats == null || seats <= 0) {
-            log.warn("Invalid seat count: {}", seats);
-            return false;
+            throw new InvalidRequestException("Seat count must be greater than 0");
+        }
+        
+        if (flightId == null || flightId.trim().isEmpty()) {
+            throw new InvalidRequestException("Flight ID cannot be null or empty");
         }
         
         Optional<Flight> flightOpt = flightRepository.findById(flightId);
         
         if (flightOpt.isEmpty()) {
-            log.warn("Flight not found: {}", flightId);
-            return false;
+            throw new FlightNotFoundException(flightId);
         }
         
         Flight flight = flightOpt.get();
         int currentAvailableSeats = flight.getAvailableSeats();
         
-        if (currentAvailableSeats >= seats) {
-            flight.setAvailableSeats(currentAvailableSeats - seats);
-            flightRepository.save(flight);
-            log.info("Successfully reserved {} seats. Available seats now: {}", 
-                    seats, flight.getAvailableSeats());
-            return true;
+        if (currentAvailableSeats < seats) {
+            throw new InsufficientSeatsException(flightId, seats, currentAvailableSeats);
         }
         
-        log.warn("Failed to reserve {} seats for flight {} - only {} seats available", 
-                seats, flightId, currentAvailableSeats);
-        return false;
+        flight.setAvailableSeats(currentAvailableSeats - seats);
+        flightRepository.save(flight);
+        log.info("Successfully reserved {} seats. Available seats now: {}", 
+                seats, flight.getAvailableSeats());
     }
     
     public synchronized void releaseSeats(String flightId, Integer seats) {
         log.info("Releasing {} seats for flight {}", seats, flightId);
         
         if (seats == null || seats <= 0) {
-            log.warn("Invalid seat count for release: {}", seats);
-            return;
+            throw new InvalidRequestException("Seat count must be greater than 0");
+        }
+        
+        if (flightId == null || flightId.trim().isEmpty()) {
+            throw new InvalidRequestException("Flight ID cannot be null or empty");
         }
         
         Optional<Flight> flightOpt = flightRepository.findById(flightId);
         
-        if (flightOpt.isPresent()) {
-            Flight flight = flightOpt.get();
-            int newAvailableSeats = flight.getAvailableSeats() + seats;
-            flight.setAvailableSeats(newAvailableSeats);
-            flightRepository.save(flight);
-            log.info("Successfully released {} seats. Available seats now: {}", 
-                    seats, newAvailableSeats);
-        } else {
-            log.warn("좌석 해제 대상 항공편을 찾을 수 없음: {}", flightId);
+        if (flightOpt.isEmpty()) {
+            throw new FlightNotFoundException(flightId);
         }
+        
+        Flight flight = flightOpt.get();
+        int newAvailableSeats = flight.getAvailableSeats() + seats;
+        flight.setAvailableSeats(newAvailableSeats);
+        flightRepository.save(flight);
+        log.info("Successfully released {} seats. Available seats now: {}", 
+                seats, newAvailableSeats);
     }
     
     /**

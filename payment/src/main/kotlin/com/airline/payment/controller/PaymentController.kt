@@ -43,11 +43,7 @@ class PaymentController(
     @GetMapping("/{paymentId}")
     fun getPaymentById(@PathVariable paymentId: String): ResponseEntity<PaymentResponse> {
         val payment = paymentService.getPaymentById(paymentId)
-        return if (payment != null) {
-            ResponseEntity.ok(payment)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+        return ResponseEntity.ok(payment)
     }
     
     /**
@@ -59,10 +55,6 @@ class PaymentController(
     @PostMapping("/{paymentId}/cancel")
     fun cancelPayment(@PathVariable paymentId: String): ResponseEntity<PaymentResponse> {
         val cancelledPayment = paymentService.cancelPayment(paymentId)
-        return if (cancelledPayment != null) {
-            ResponseEntity.ok(cancelledPayment)
-        } else {
-            ResponseEntity.badRequest().build()
-        }
+        return ResponseEntity.ok(cancelledPayment)
     }
 }

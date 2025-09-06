@@ -5,6 +5,10 @@ import com.airline.payment.dto.PaymentRequest
 import com.airline.payment.dto.PaymentResponse
 import com.airline.payment.dto.PaymentStatus
 import com.airline.payment.entity.Payment
+import com.airline.payment.exception.PaymentNotFoundException
+import com.airline.payment.exception.PaymentProcessingException
+import com.airline.payment.exception.InvalidPaymentRequestException
+import com.airline.payment.exception.PaymentAlreadyCancelledException
 import com.airline.payment.mapper.PaymentMapper
 import com.airline.payment.repository.PaymentRepository
 import org.slf4j.LoggerFactory
@@ -45,20 +49,27 @@ class PaymentService (
     fun processPayment(request: PaymentRequest): PaymentResponse {
         logger.info("예약 {}에 대한 {}원 결제 처리 시작", request.reservationId, request.amount)
         
+        // 입력값 검증
+        validatePaymentRequest(request)
+        
         val paymentId = generatePaymentId()
         val payment = createPaymentEntity(request, paymentId)
         
         // 결제 시스템 연동 시뮬레이션
         val isSuccessful = processExternalPayment(request)
         
-        // 결제 결과 반영
-        updatePaymentResult(payment, isSuccessful)
+        if (!isSuccessful) {
+            updatePaymentResult(payment, false)
+            paymentRepository.save(payment)
+            throw PaymentProcessingException("External payment system declined the transaction")
+        }
+        
+        // 결제 성공 처리
+        updatePaymentResult(payment, true)
         val savedPayment = paymentRepository.save(payment)
         
-        // 성공 시 이벤트 발행
-        if (isSuccessful) {
-            publishPaymentApprovedEvent(request.reservationId)
-        }
+        // 성공 이벤트 발행
+        publishPaymentApprovedEvent(request.reservationId)
         
         logger.info("결제 처리 완료: {} - {}", paymentId, savedPayment.status)
         return paymentMapper.toResponse(savedPayment)
@@ -70,10 +81,17 @@ class PaymentService (
      * @param paymentId 결제 식별자
      * @return 결제 정보 DTO, 존재하지 않으면 null
      */
-    fun getPaymentById(paymentId: String): PaymentResponse? {
+    fun getPaymentById(paymentId: String): PaymentResponse {
         logger.info("결제 정보 조회: {}", paymentId)
+        
+        if (paymentId.isBlank()) {
+            throw InvalidPaymentRequestException("Payment ID cannot be blank")
+        }
+        
         val payment = paymentRepository.findById(paymentId)
-        return payment?.let { paymentMapper.toResponse(it) }
+            ?: throw PaymentNotFoundException(paymentId)
+            
+        return paymentMapper.toResponse(payment)
     }
     
     /**
@@ -85,16 +103,25 @@ class PaymentService (
      * @param paymentId 취소할 결제 식별자
      * @return 취소된 결제 정보, 취소 불가능하면 null
      */
-    fun cancelPayment(paymentId: String): PaymentResponse? {
+    fun cancelPayment(paymentId: String): PaymentResponse {
         logger.info("결제 취소 요청: {}", paymentId)
-        val payment = paymentRepository.findById(paymentId)
         
-        if (canCancelPayment(payment)) {
-            return processCancellation(payment!!, paymentId)
+        if (paymentId.isBlank()) {
+            throw InvalidPaymentRequestException("Payment ID cannot be blank")
         }
         
-        logger.warn("취소할 수 없는 결제: {} (상태: {})", paymentId, payment?.status)
-        return null
+        val payment = paymentRepository.findById(paymentId)
+            ?: throw PaymentNotFoundException(paymentId)
+        
+        if (!canCancelPayment(payment)) {
+            if (payment.status == PaymentStatus.CANCELLED) {
+                throw PaymentAlreadyCancelledException(paymentId)
+            } else {
+                throw InvalidPaymentRequestException("Payment $paymentId cannot be cancelled (status: ${payment.status})")
+            }
+        }
+        
+        return processCancellation(payment, paymentId)
     }
     
     /**
@@ -122,6 +149,32 @@ class PaymentService (
     private fun generatePaymentId(): String {
         val idConfig = paymentConfig.idGeneration
         return "${idConfig.prefix}${UUID.randomUUID().toString().take(idConfig.uuidLength)}"
+    }
+    
+    /**
+     * 결제 요청 유효성 검증
+     */
+    private fun validatePaymentRequest(request: PaymentRequest) {
+        if (request.reservationId.isBlank()) {
+            throw InvalidPaymentRequestException("Reservation ID cannot be blank")
+        }
+        
+        if (request.amount <= BigDecimal.ZERO) {
+            throw InvalidPaymentRequestException("Payment amount must be greater than 0")
+        }
+        
+        if (request.paymentMethod.isBlank()) {
+            throw InvalidPaymentRequestException("Payment method cannot be blank")
+        }
+        
+        request.customerInfo?.let { customerInfo ->
+            if (customerInfo.name.isNullOrBlank()) {
+                throw InvalidPaymentRequestException("Customer name cannot be blank")
+            }
+            if (customerInfo.email.isNullOrBlank()) {
+                throw InvalidPaymentRequestException("Customer email cannot be blank")
+            }
+        } ?: throw InvalidPaymentRequestException("Customer information is required")
     }
     
     /**

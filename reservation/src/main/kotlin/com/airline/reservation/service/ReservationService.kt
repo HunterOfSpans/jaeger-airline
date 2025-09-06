@@ -8,6 +8,7 @@ import com.airline.reservation.dto.ReservationResponse
 import com.airline.reservation.dto.ReservationStatus
 import com.airline.reservation.dto.external.*
 import com.airline.reservation.entity.Reservation
+import com.airline.reservation.exception.*
 import com.airline.reservation.mapper.ReservationMapper
 import com.airline.reservation.repository.ReservationRepository
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
@@ -56,27 +57,20 @@ class ReservationService(
         
         val reservation = initializeReservation(request, reservationId)
         
-        try {
-            // 1단계: 항공편 검증 및 좌석 가용성 확인
-            val flight = validateFlightAndAvailability(request, reservation)
-            
-            // 2단계: 좌석 예약 처리
-            reserveFlightSeats(request.flightId)
-            
-            // 3단계: 결제 처리
-            val payment = processPayment(reservation, flight, request)
-            
-            // 4단계: 항공권 발급
-            val ticket = issueTicket(reservation, payment, request)
-            
-            // 5단계: 예약 완료 처리
-            return completeReservation(reservation, payment, ticket, flight)
-            
-        } catch (e: Exception) {
-            logger.error("예약 실패: {}", e.message, e)
-            executeCompensation(reservationId, request.flightId)
-            return updateReservationToFailed(reservation, "예약 실패: ${e.message}")
-        }
+        // 1단계: 항공편 검증 및 좌석 가용성 확인
+        val flight = validateFlightAndAvailability(request, reservation)
+        
+        // 2단계: 좌석 예약 처리  
+        reserveFlightSeats(request.flightId)
+        
+        // 3단계: 결제 처리
+        val payment = processPayment(reservation, flight, request)
+        
+        // 4단계: 항공권 발급
+        val ticket = issueTicket(reservation, payment, request)
+        
+        // 5단계: 예약 완료 처리
+        return completeReservation(reservation, payment, ticket, flight)
     }
     
     /**
@@ -85,10 +79,17 @@ class ReservationService(
      * @param reservationId 예약 식별자
      * @return 예약 정보 DTO, 존재하지 않으면 null
      */
-    fun getReservationById(reservationId: String): ReservationResponse? {
+    fun getReservationById(reservationId: String): ReservationResponse {
         logger.info("예약 정보 조회: {}", reservationId)
+        
+        if (reservationId.isBlank()) {
+            throw InvalidReservationRequestException("Reservation ID cannot be blank")
+        }
+        
         val reservation = reservationRepository.findById(reservationId)
-        return reservation?.let { reservationMapper.toResponse(it) }
+            ?: throw ReservationNotFoundException(reservationId)
+            
+        return reservationMapper.toResponse(reservation)
     }
     
     /**
@@ -285,22 +286,14 @@ class ReservationService(
         
         // 항공권 취소
         ticketId?.let { 
-            try {
-                ticketClient.cancelTicket(it)
-                logger.info("항공권 취소 완료: {}", it)
-            } catch (e: Exception) {
-                logger.error("항공권 취소 실패: {}", it, e)
-            }
+            ticketClient.cancelTicket(it)
+            logger.info("항공권 취소 완료: {}", it)
         }
         
         // 결제 취소
         paymentId?.let {
-            try {
-                paymentClient.cancelPayment(it)
-                logger.info("결제 취소 완료: {}", it)
-            } catch (e: Exception) {
-                logger.error("결제 취소 실패: {}", it, e)
-            }
+            paymentClient.cancelPayment(it)
+            logger.info("결제 취소 완료: {}", it)
         }
         
         // 좌석 해제
@@ -311,13 +304,9 @@ class ReservationService(
      * 항공편 좌석을 해제합니다.
      */
     private fun releaseSeats(flightId: String, seats: Int) {
-        try {
-            val releaseRequest = AvailabilityRequest(requestedSeats = seats)
-            flightClient.releaseSeats(flightId, releaseRequest)
-            logger.info("좌석 해제 완료: {} ({}석)", flightId, seats)
-        } catch (e: Exception) {
-            logger.error("좌석 해제 실패: {}", flightId, e)
-        }
+        val releaseRequest = AvailabilityRequest(requestedSeats = seats)
+        flightClient.releaseSeats(flightId, releaseRequest)
+        logger.info("좌석 해제 완료: {} ({}석)", flightId, seats)
     }
     
     // 기존 메서드 호환성 유지
