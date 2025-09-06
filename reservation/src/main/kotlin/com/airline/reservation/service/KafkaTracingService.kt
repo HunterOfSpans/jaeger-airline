@@ -1,5 +1,6 @@
 package com.airline.reservation.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.Tracer
 import org.slf4j.LoggerFactory
@@ -18,6 +19,7 @@ class KafkaTracingService(
 ) {
     private val logger = LoggerFactory.getLogger(KafkaTracingService::class.java)
     private val eventStatusMap = ConcurrentHashMap<String, Map<String, Any>>()
+    private val objectMapper = ObjectMapper()
     
     /**
      * 간단한 Kafka 이벤트 체인 트리거
@@ -41,7 +43,7 @@ class KafkaTracingService(
             )
             
             // reservation.requested 이벤트 발행
-            val eventMessage = mapOf(
+            val eventData = mapOf(
                 "eventId" to eventId,
                 "type" to "SIMPLE_CHAIN",
                 "reservationId" to "RES-KAFKA-$eventId",
@@ -49,7 +51,8 @@ class KafkaTracingService(
                 "requestedSeats" to 1,
                 "timestamp" to System.currentTimeMillis(),
                 "message" to "Simple Kafka event chain started"
-            ).toString()
+            )
+            val eventMessage = objectMapper.writeValueAsString(eventData)
             
             kafkaTemplate.send("reservation.requested", eventId, eventMessage)
             logger.info("Published reservation.requested event with eventId: {}", eventId)
@@ -94,7 +97,7 @@ class KafkaTracingService(
             )
             
             // reservation.requested 이벤트 발행
-            val eventMessage = mapOf(
+            val eventData = mapOf(
                 "eventId" to eventId,
                 "type" to "RESERVATION_REQUESTED",
                 "flightId" to flightId,
@@ -104,7 +107,8 @@ class KafkaTracingService(
                 "timestamp" to System.currentTimeMillis(),
                 "requiredSteps" to listOf("seat_reservation", "payment", "ticket_generation"),
                 "message" to "Complex reservation flow requested"
-            ).toString()
+            )
+            val eventMessage = objectMapper.writeValueAsString(eventData)
             
             kafkaTemplate.send("reservation.requested", eventId, eventMessage)
             logger.info("Published reservation.requested event with eventId: {}", eventId)
@@ -145,7 +149,7 @@ class KafkaTracingService(
             )
             
             // payment.failed 이벤트 발행
-            val eventMessage = mapOf(
+            val eventData = mapOf(
                 "eventId" to eventId,
                 "type" to "PAYMENT_FAILED",
                 "reservationId" to "RES-FAIL-$eventId",
@@ -154,7 +158,8 @@ class KafkaTracingService(
                 "timestamp" to System.currentTimeMillis(),
                 "compensationRequired" to true,
                 "message" to "Payment failed - compensation flow triggered"
-            ).toString()
+            )
+            val eventMessage = objectMapper.writeValueAsString(eventData)
             
             kafkaTemplate.send("payment.failed", eventId, eventMessage)
             logger.info("Published payment.failed event with eventId: {}", eventId)
@@ -197,7 +202,7 @@ class KafkaTracingService(
                 val eventId = "$baseEventId-${topic.split('.').last().uppercase()}"
                 eventIds.add(eventId)
                 
-                val eventMessage = mapOf(
+                val eventData = mapOf(
                     "eventId" to eventId,
                     "baseEventId" to baseEventId,
                     "type" to eventType,
@@ -208,7 +213,8 @@ class KafkaTracingService(
                         "sessionId" to "session-456",
                         "action" to "multi_topic_test"
                     )
-                ).toString()
+                )
+                val eventMessage = objectMapper.writeValueAsString(eventData)
                 
                 kafkaTemplate.send(topic, eventId, eventMessage)
                 logger.info("Published {} event to topic: {}", eventType, topic)
