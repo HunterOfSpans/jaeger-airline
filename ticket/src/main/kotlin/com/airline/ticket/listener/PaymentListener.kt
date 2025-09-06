@@ -3,6 +3,9 @@ package com.airline.ticket.listener
 import com.airline.ticket.annotation.KafkaOtelTrace
 import com.airline.ticket.service.TicketService
 import org.springframework.kafka.annotation.KafkaListener
+import org.springframework.messaging.MessageHeaders
+import org.springframework.messaging.handler.annotation.Headers
+import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Component
 
 @Component
@@ -14,10 +17,11 @@ class PaymentListener(
         spanName = "process-payment-approved", 
         attributes = ["event.type=payment.approved", "service=ticket"]
     )
-    fun paymentApprovedListener(message: String) {
+    fun paymentApprovedListener(
+        @Payload message: String,
+        @Headers headers: MessageHeaders
+    ) {
         println(message)
-
         ticketService.issue()
     }
-
 }

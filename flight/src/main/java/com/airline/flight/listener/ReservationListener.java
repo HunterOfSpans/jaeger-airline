@@ -30,10 +30,13 @@ public class ReservationListener {
         attributes = {"event.type=reservation.requested", "service=flight"},
         recordMessageContent = true
     )
-    public void handleReservationRequested(ConsumerRecord<String, String> record) {
-        log.info("Received reservation.requested event: {}", record.value());
+    public void handleReservationRequested(
+            @org.springframework.messaging.handler.annotation.Payload String message,
+            @org.springframework.messaging.handler.annotation.Headers org.springframework.messaging.MessageHeaders headers
+    ) {
+        log.info("Received reservation.requested event: {}", message);
         
-        JsonNode reservationData = parseMessageData(record.value());
+        JsonNode reservationData = parseMessageData(message);
         String reservationId = reservationData.get("reservationId").asText();
         String flightId = reservationData.get("flightId").asText();
         int requestedSeats = reservationData.get("requestedSeats").asInt();
