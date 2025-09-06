@@ -11,6 +11,16 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * 항공편 데이터 접근 계층
+ * 
+ * 항공편 정보의 CRUD 작업과 비즈니스 로직에 특화된 조회 기능을 제공합니다.
+ * ConcurrentHashMap을 사용한 인메모리 저장소로 구현되어 있으며,
+ * 실제 프로덕션에서는 JPA Repository로 교체 가능한 구조입니다.
+ * 
+ * @author Claude Code
+ * @since 1.0
+ */
 @Repository
 public class FlightRepository {
     
@@ -47,19 +57,43 @@ public class FlightRepository {
             new BigDecimal("1"), 1, "Test Aircraft"));
     }
     
+    /**
+     * 항공편 정보를 저장하거나 업데이트합니다.
+     * 
+     * @param flight 저장할 항공편 엔티티
+     * @return 저장된 항공편 엔티티
+     */
     public Flight save(Flight flight) {
         flights.put(flight.getFlightId(), flight);
         return flight;
     }
     
+    /**
+     * 항공편 ID로 특정 항공편을 조회합니다.
+     * 
+     * @param flightId 항공편 식별자
+     * @return 항공편 엔티티를 담은 Optional, 존재하지 않으면 빈 Optional
+     */
     public Optional<Flight> findById(String flightId) {
         return Optional.ofNullable(flights.get(flightId));
     }
     
+    /**
+     * 모든 항공편을 조회합니다.
+     * 
+     * @return 전체 항공편 목록
+     */
     public List<Flight> findAll() {
         return flights.values().stream().collect(Collectors.toList());
     }
     
+    /**
+     * 출발지와 도착지로 항공편을 검색합니다.
+     * 
+     * @param departure 출발지 공항 코드
+     * @param arrival   도착지 공항 코드
+     * @return 검색 조건에 맞는 항공편 목록
+     */
     public List<Flight> findByDepartureAndArrival(String departure, String arrival) {
         return flights.values().stream()
             .filter(flight -> flight.getDeparture().equalsIgnoreCase(departure) && 
@@ -67,14 +101,30 @@ public class FlightRepository {
             .collect(Collectors.toList());
     }
     
+    /**
+     * 특정 항공편이 존재하는지 확인합니다.
+     * 
+     * @param flightId 항공편 식별자
+     * @return 존재 여부
+     */
     public boolean existsById(String flightId) {
         return flights.containsKey(flightId);
     }
     
+    /**
+     * 특정 항공편을 삭제합니다.
+     * 
+     * @param flightId 삭제할 항공편 식별자
+     */
     public void deleteById(String flightId) {
         flights.remove(flightId);
     }
     
+    /**
+     * 저장된 항공편 총 개수를 반환합니다.
+     * 
+     * @return 전체 항공편 수
+     */
     public long count() {
         return flights.size();
     }

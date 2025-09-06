@@ -83,7 +83,56 @@ public class FlightService {
             log.info("Successfully released {} seats. Available seats now: {}", 
                     seats, flight.getAvailableSeats());
         } else {
-            log.warn("Flight not found for releasing seats: {}", flightId);
+            log.warn("좌석 해제 대상 항공편을 찾을 수 없음: {}", flightId);
         }
+    }
+    
+    /**
+     * 출발지와 도착지로 항공편을 검색합니다.
+     */
+    private List<Flight> findFlightsByRoute(String from, String to) {
+        return flightRepository.findByDepartureAndArrival(from, to);
+    }
+    
+    /**
+     * 항공편을 찾을 수 없을 때의 응답을 생성합니다.
+     */
+    private AvailabilityResponse createNotFoundResponse(String flightId) {
+        return new AvailabilityResponse(false, flightId, 0, "항공편을 찾을 수 없습니다");
+    }
+    
+    /**
+     * 가용성 확인 응답을 생성합니다.
+     */
+    private AvailabilityResponse createAvailabilityResponse(Flight flight, AvailabilityRequest request) {
+        boolean available = flight.getAvailableSeats() >= request.getRequestedSeats();
+        String message = available ? "좌석 예약 가능" : "가용 좌석 부족";
+        
+        return new AvailabilityResponse(available, request.getFlightId(), 
+                                      flight.getAvailableSeats(), message);
+    }
+    
+    /**
+     * 좌석 예약 처리 로직을 수행합니다.
+     */
+    private boolean processReservation(Flight flight, Integer seats) {
+        if (flight.getAvailableSeats() >= seats) {
+            flight.setAvailableSeats(flight.getAvailableSeats() - seats);
+            flightRepository.save(flight);
+            log.info("{}석 예약 성공. 남은 좌석: {}석", seats, flight.getAvailableSeats());
+            return true;
+        }
+        
+        log.warn("좌석 부족으로 예약 실패. 요청: {}석, 가용: {}석", seats, flight.getAvailableSeats());
+        return false;
+    }
+    
+    /**
+     * 좌석 해제 처리 로직을 수행합니다.
+     */
+    private void processRelease(Flight flight, Integer seats) {
+        flight.setAvailableSeats(flight.getAvailableSeats() + seats);
+        flightRepository.save(flight);
+        log.info("{}석 해제 성공. 현재 가용 좌석: {}석", seats, flight.getAvailableSeats());
     }
 }
