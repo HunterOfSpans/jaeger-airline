@@ -156,24 +156,42 @@ annotation class KafkaOtelTrace(
 
 ### 2. KafkaTracingAspect 구현 핵심
 
-#### A. 메시지 헤더에서 Trace Context 추출
+#### A. 메시지 헤더에서 Trace Context 추출 (MessageHeaders 우선)
 ```kotlin
 @Around("@annotation(kafkaOtelTrace)")
 fun traceKafkaListener(pjp: ProceedingJoinPoint, kafkaOtelTrace: KafkaOtelTrace): Any? {
-    val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
-    
-    // TextMapGetter로 헤더에서 트레이스 정보 추출
-    val getter = object : TextMapGetter<ConsumerRecord<*, *>> {
-        override fun keys(carrier: ConsumerRecord<*, *>): Iterable<String> =
-            carrier.headers().map { it.key() }
+    // 1. MessageHeaders 우선 탐지 (더 깔끔한 방식)
+    val messageHeaders = pjp.args.filterIsInstance<MessageHeaders>().firstOrNull()
+    if (messageHeaders != null) {
+        return traceWithMessageHeaders(pjp, kafkaOtelTrace, messageHeaders)
+    }
 
-        override fun get(carrier: ConsumerRecord<*, *>?, key: String): String? =
-            carrier?.headers()?.lastHeader(key)?.value()?.toString(Charsets.UTF_8)
+    // 2. ConsumerRecord 탐지 (기존 방식 호환성 유지)
+    val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
+    if (record != null) {
+        return traceWithConsumerRecord(pjp, kafkaOtelTrace, record)
+    }
+    
+    logger.warn("@KafkaOtelTrace used on method without MessageHeaders or ConsumerRecord parameter")
+    return pjp.proceed()
+}
+
+// MessageHeaders를 위한 전용 처리 메소드
+private fun traceWithMessageHeaders(
+    pjp: ProceedingJoinPoint, 
+    kafkaOtelTrace: KafkaOtelTrace, 
+    messageHeaders: MessageHeaders
+): Any? {
+    // TextMapGetter로 헤더에서 트레이스 정보 추출
+    val getter = object : TextMapGetter<MessageHeaders> {
+        override fun keys(carrier: MessageHeaders): Iterable<String> = carrier.keys
+        override fun get(carrier: MessageHeaders?, key: String): String? = 
+            carrier?.get(key)?.toString()
     }
 
     // OpenTelemetry Propagator로 부모 컨텍스트 복원
     val parentContext = openTelemetry.propagators.textMapPropagator
-        .extract(Context.current(), record, getter)
+        .extract(Context.current(), messageHeaders, getter)
 ```
 
 #### B. Child Span 생성 및 컨텍스트 연결
@@ -214,8 +232,11 @@ class TicketListener(private val reservationService: ReservationService) {
         attributes = ["event.type=ticket.issued", "service=reservation"],
         recordMessageContent = false  // 보안상 메시지 내용은 기록하지 않음
     )
-    fun ticketIssuedListener(record: ConsumerRecord<String, String>) {
-        println(record.value())
+    fun ticketIssuedListener(
+        @Payload message: String,          // ← 깔끔한 비즈니스 로직
+        @Headers headers: MessageHeaders   // ← AOP가 트레이싱용으로 활용
+    ) {
+        println(message)
         reservationService.confirm()  // ← 이 호출도 같은 트레이스에 포함됨
     }
 }
@@ -300,26 +321,26 @@ Root Span: HTTP Request (reservation-service)
 
 ## AOP 구현 개선 방안
 
-### 다중 매개변수 지원하는 KafkaTracingAspect
+### 다중 매개변수 지원하는 KafkaTracingAspect (최신 구현)
 
-현재 구현을 확장하여 여러 매개변수 타입을 지원할 수 있습니다:
+현재 구현은 MessageHeaders 우선 방식으로 여러 매개변수 타입을 지원합니다:
 
 ```kotlin
 @Around("@annotation(kafkaOtelTrace)")
 fun traceKafkaListener(pjp: ProceedingJoinPoint, kafkaOtelTrace: KafkaOtelTrace): Any? {
-    // 1. ConsumerRecord 우선 탐지
-    val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
-    if (record != null) {
-        return traceWithConsumerRecord(pjp, kafkaOtelTrace, record)
-    }
-    
-    // 2. MessageHeaders 탐지  
+    // 1. MessageHeaders 우선 탐지 (더 깔끔한 방식)
     val messageHeaders = pjp.args.filterIsInstance<MessageHeaders>().firstOrNull()
     if (messageHeaders != null) {
         return traceWithMessageHeaders(pjp, kafkaOtelTrace, messageHeaders)
     }
     
-    // 3. ConsumerRecordMetadata 탐지
+    // 2. ConsumerRecord 탐지 (기존 방식 호환성 유지)
+    val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
+    if (record != null) {
+        return traceWithConsumerRecord(pjp, kafkaOtelTrace, record)
+    }
+    
+    // 3. ConsumerRecordMetadata 탐지 (향후 확장)
     val metadata = pjp.args.filterIsInstance<ConsumerRecordMetadata>().firstOrNull()
     if (metadata != null) {
         return traceWithMetadata(pjp, kafkaOtelTrace, metadata)
@@ -344,7 +365,12 @@ private fun traceWithMessageHeaders(
     val parentContext = openTelemetry.propagators.textMapPropagator
         .extract(Context.current(), headers, getter)
         
-    // 나머지 Span 생성 로직...
+    // MessageHeaders에서 Kafka 메타데이터 추출
+    val topic = headers[KafkaHeaders.RECEIVED_TOPIC]?.toString() ?: "unknown"
+    val partition = headers[KafkaHeaders.RECEIVED_PARTITION] as? Int ?: -1
+    val offset = headers[KafkaHeaders.OFFSET] as? Long ?: -1L
+    
+    return createAndExecuteSpan(pjp, kafkaOtelTrace, parentContext, topic, partition, offset, null)
 }
 ```
 
@@ -515,31 +541,33 @@ fun kafkaTemplate(): KafkaTemplate<String, String> {
 **문제**: AOP에서 NullPointerException  
 **원인**: 헤더 정보에 접근할 수 있는 매개변수가 없음
 
-**현재 구현에서 지원되는 방법들:**
+**현재 구현에서 지원되는 방법들 (MessageHeaders 우선):**
 
-#### 방법 1: @Payload + @Headers 사용 (⭐ 권장)
+#### 방법 1: @Payload + @Headers 사용 (⭐⭐⭐⭐⭐ 최우선 권장)
 ```kotlin
-// ✅ 가장 깔끔하고 추천하는 방법
+// ✅ 최신 구현에서 가장 깔끔하고 추천하는 방법
 @KafkaListener(topics = ["test"])
 @KafkaOtelTrace
 fun listener(
     @Payload message: String,
     @Headers headers: MessageHeaders
 ) {
-    // 비즈니스 로직은 message만 사용
-    // 트레이싱은 AOP가 headers로 처리
+    // 비즈니스 로직은 message만 사용 - 완벽한 관심사 분리!
+    // 트레이싱은 AOP가 MessageHeaders로 자동 처리
+    // Spring Kafka의 KafkaHeaders.* 상수로 메타데이터 깔끔하게 접근
 }
 ```
 
-#### 방법 2: ConsumerRecord 사용 (호환성)
+#### 방법 2: ConsumerRecord 사용 (⭐⭐⭐ 호환성 지원)
 ```kotlin
-// ✅ 기존 코드 호환성을 위해 지원
+// ✅ 기존 코드 호환성을 위해 계속 지원
 @KafkaListener(topics = ["test"])
 @KafkaOtelTrace
 fun listener(record: ConsumerRecord<String, String>) {
     val message = record.value()
     val headers = record.headers() 
-    // 모든 정보가 record에 포함되지만 비즈니스 로직이 복잡해짐
+    // 모든 정보 접근 가능하지만 비즈니스 로직이 복잡해짐
+    // MessageHeaders 방식을 사용할 수 없는 경우에만 사용
 }
 ```
 
@@ -558,11 +586,11 @@ fun listener(
 
 **❌ 지원하지 않는 방법:**
 ```kotlin
-// 현재 AOP 구현으로는 추적 불가
+// AOP에서 헤더에 접근할 수 없어 추적 불가
 @KafkaOtelTrace
 fun wrongListener(message: String) { }
 
-// 개별 헤더 접근도 현재 구현으로는 복잡
+// 개별 헤더 접근도 현재 AOP 구현으로는 복잡
 @KafkaOtelTrace
 fun complexListener(
     @Payload message: String,
@@ -570,7 +598,7 @@ fun complexListener(
 ) { }
 ```
 
-**현재 KafkaTracingAspect는 ConsumerRecord만 지원**하므로, 다른 방법을 사용하려면 AOP 코드 수정이 필요합니다.
+**✅ 최신 KafkaTracingAspect는 MessageHeaders와 ConsumerRecord 모두 지원**하며, MessageHeaders 방식을 우선적으로 처리합니다. 따라서 새로운 코드에서는 `@Payload + @Headers` 방식을 권장합니다.
 
 ### 4. 디버깅 도구
 
