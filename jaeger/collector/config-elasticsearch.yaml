@@ -33,6 +33,7 @@ extensions:
             index_prefix: "jaeger-prod"
           use_aliases: true
           use_ilm: true
+          # Original settings that were working in 2.6.0
           # elastic search tls 연결 시 사용
 #          auth:
 #            basic:
