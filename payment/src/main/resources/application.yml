@@ -10,6 +10,18 @@ spring:
       auto-commit-interval: 1000
       bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
 
+# 결제 서비스 설정
+payment:
+  success-rates:
+    high-amount: 0.7      # 100만원 초과 결제 성공률 (70%)
+    medium-amount: 0.9    # 50만원 초과 결제 성공률 (90%)
+    low-amount: 0.95      # 50만원 이하 결제 성공률 (95%)
+  amount-thresholds:
+    high: 1000000         # 고액 결제 임계값 (100만원)
+    medium: 500000        # 중간 금액 결제 임계값 (50만원)
+  id-generation:
+    prefix: "PAY-"        # 결제 ID 접두사
+    uuid-length: 8        # UUID 잘라내기 길이
 
 server:
   port: 8082

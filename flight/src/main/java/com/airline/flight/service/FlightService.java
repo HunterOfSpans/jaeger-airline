@@ -29,6 +29,12 @@ public class FlightService {
     
     public FlightDto getFlightById(String flightId) {
         log.info("Getting flight by ID: {}", flightId);
+        
+        if (flightId == null || flightId.trim().isEmpty()) {
+            log.warn("Invalid flight ID provided: {}", flightId);
+            return null;
+        }
+        
         Optional<Flight> flight = flightRepository.findById(flightId);
         return flight.map(flightMapper::toDto).orElse(null);
     }
@@ -36,6 +42,17 @@ public class FlightService {
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
         log.info("Checking availability for flight {} with {} seats", 
                 request.getFlightId(), request.getRequestedSeats());
+        
+        if (request == null || request.getFlightId() == null || request.getRequestedSeats() == null) {
+            log.warn("Invalid availability request: {}", request);
+            return new AvailabilityResponse(false, 
+                request != null ? request.getFlightId() : "unknown", 0, "Invalid request");
+        }
+        
+        if (request.getRequestedSeats() <= 0) {
+            log.warn("Invalid seat count requested: {}", request.getRequestedSeats());
+            return new AvailabilityResponse(false, request.getFlightId(), 0, "Invalid seat count");
+        }
         
         Optional<Flight> flightOpt = flightRepository.findById(request.getFlightId());
         if (flightOpt.isEmpty()) {
@@ -50,8 +67,14 @@ public class FlightService {
                                       flight.getAvailableSeats(), message);
     }
     
-    public boolean reserveSeats(String flightId, Integer seats) {
+    public synchronized boolean reserveSeats(String flightId, Integer seats) {
         log.info("Reserving {} seats for flight {}", seats, flightId);
+        
+        if (seats == null || seats <= 0) {
+            log.warn("Invalid seat count: {}", seats);
+            return false;
+        }
+        
         Optional<Flight> flightOpt = flightRepository.findById(flightId);
         
         if (flightOpt.isEmpty()) {
@@ -60,28 +83,38 @@ public class FlightService {
         }
         
         Flight flight = flightOpt.get();
-        if (flight.getAvailableSeats() >= seats) {
-            flight.setAvailableSeats(flight.getAvailableSeats() - seats);
+        int currentAvailableSeats = flight.getAvailableSeats();
+        
+        if (currentAvailableSeats >= seats) {
+            flight.setAvailableSeats(currentAvailableSeats - seats);
             flightRepository.save(flight);
             log.info("Successfully reserved {} seats. Available seats now: {}", 
                     seats, flight.getAvailableSeats());
             return true;
         }
         
-        log.warn("Failed to reserve {} seats for flight {}", seats, flightId);
+        log.warn("Failed to reserve {} seats for flight {} - only {} seats available", 
+                seats, flightId, currentAvailableSeats);
         return false;
     }
     
-    public void releaseSeats(String flightId, Integer seats) {
+    public synchronized void releaseSeats(String flightId, Integer seats) {
         log.info("Releasing {} seats for flight {}", seats, flightId);
+        
+        if (seats == null || seats <= 0) {
+            log.warn("Invalid seat count for release: {}", seats);
+            return;
+        }
+        
         Optional<Flight> flightOpt = flightRepository.findById(flightId);
         
         if (flightOpt.isPresent()) {
             Flight flight = flightOpt.get();
-            flight.setAvailableSeats(flight.getAvailableSeats() + seats);
+            int newAvailableSeats = flight.getAvailableSeats() + seats;
+            flight.setAvailableSeats(newAvailableSeats);
             flightRepository.save(flight);
             log.info("Successfully released {} seats. Available seats now: {}", 
-                    seats, flight.getAvailableSeats());
+                    seats, newAvailableSeats);
         } else {
             log.warn("좌석 해제 대상 항공편을 찾을 수 없음: {}", flightId);
         }

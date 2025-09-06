@@ -1,5 +1,6 @@
 package com.airline.ticket.service
 
+import com.airline.ticket.config.TicketConfig
 import com.airline.ticket.dto.TicketRequest
 import com.airline.ticket.dto.TicketResponse
 import com.airline.ticket.dto.TicketStatus
@@ -27,7 +28,8 @@ import java.util.*
 class TicketService (
     private val kafkaTemplate: KafkaTemplate<String, String>,
     private val ticketRepository: TicketRepository,
-    private val ticketMapper: TicketMapper
+    private val ticketMapper: TicketMapper,
+    private val ticketConfig: TicketConfig
 ){
     private val logger = LoggerFactory.getLogger(TicketService::class.java)
     
@@ -95,7 +97,8 @@ class TicketService (
      * 항공권 ID를 생성합니다.
      */
     private fun generateTicketId(): String {
-        return "TKT-${UUID.randomUUID().toString().take(8)}"
+        val idConfig = ticketConfig.idGeneration
+        return "${idConfig.prefix}${UUID.randomUUID().toString().take(idConfig.uuidLength)}"
     }
     
     /**
@@ -150,9 +153,10 @@ class TicketService (
      * 실제 시스템에서는 예약된 좌석을 제외하고 할당해야 합니다.
      */
     private fun generateSeatNumber(): String {
-        val rows = (1..30).random()
-        val seats = listOf("A", "B", "C", "D", "E", "F")
-        return "$rows${seats.random()}"
+        val seatConfig = ticketConfig.seatAssignment
+        val rows = (1..seatConfig.maxRows).random()
+        val column = seatConfig.columns.random()
+        return "$rows$column"
     }
     
     // 기존 메서드 호환성 유지

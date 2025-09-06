@@ -1,5 +1,6 @@
 package com.airline.payment.service
 
+import com.airline.payment.config.PaymentConfig
 import com.airline.payment.dto.PaymentRequest
 import com.airline.payment.dto.PaymentResponse
 import com.airline.payment.dto.PaymentStatus
@@ -27,7 +28,8 @@ import java.util.*
 class PaymentService (
     private val kafkaTemplate: KafkaTemplate<String, String>,
     private val paymentRepository: PaymentRepository,
-    private val paymentMapper: PaymentMapper
+    private val paymentMapper: PaymentMapper,
+    private val paymentConfig: PaymentConfig
 ) {
     private val logger = LoggerFactory.getLogger(PaymentService::class.java)
     
@@ -104,10 +106,13 @@ class PaymentService (
      * - 50만원 이하: 95% 성공률
      */
     private fun processExternalPayment(request: PaymentRequest): Boolean {
+        val thresholds = paymentConfig.amountThresholds
+        val successRates = paymentConfig.successRates
+        
         return when {
-            request.amount > BigDecimal("1000000") -> Math.random() > 0.3
-            request.amount > BigDecimal("500000") -> Math.random() > 0.1
-            else -> Math.random() > 0.05
+            request.amount > thresholds.high -> Math.random() < successRates.highAmount
+            request.amount > thresholds.medium -> Math.random() < successRates.mediumAmount
+            else -> Math.random() < successRates.lowAmount
         }
     }
     
@@ -115,7 +120,8 @@ class PaymentService (
      * 결제 ID를 생성합니다.
      */
     private fun generatePaymentId(): String {
-        return "PAY-${UUID.randomUUID().toString().take(8)}"
+        val idConfig = paymentConfig.idGeneration
+        return "${idConfig.prefix}${UUID.randomUUID().toString().take(idConfig.uuidLength)}"
     }
     
     /**
