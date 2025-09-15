@@ -1,4 +1,4 @@
-FROM jaegertracing/jaeger:2.6.0
+FROM jaegertracing/jaeger:2.10.0
 
 COPY config-query.yaml /jaeger/config.yaml
 COPY ui-config.json /etc/jaeger/ui-config.json

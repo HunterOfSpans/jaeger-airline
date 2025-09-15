@@ -27,6 +27,9 @@ extensions:
             index_prefix: "jaeger-prod"
           use_aliases: true
           use_ilm: true
+          create_mappings: false # 2.7 부터 넣어야 함
+          # https://docs.google.com/document/d/1rabu8zvjoZeHx-HNqvK5kjsujMEBC7DkR2MYeOvB6HI/edit?tab=t.0#heading=h.abjgb642qlsg
+          # https://www.jaegertracing.io/docs/1.73/deployment/cli/ (여기서 --es.create-index-templates 이거 검색해서 내용보기) -> 1.7.3 버전
           # Original settings that were working in 2.6.0
           # elastic search tls 연결 시 사용
 #          auth:
