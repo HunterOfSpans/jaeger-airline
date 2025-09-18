@@ -8,7 +8,7 @@ data class PaymentResponse(
     val status: PaymentStatus,
     val amount: BigDecimal,
     val reservationId: String,
-    val processedAt: LocalDateTime,
+    val processedAt: LocalDateTime?,
     val message: String
 )
 

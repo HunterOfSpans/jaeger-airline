@@ -1,6 +1,12 @@
 package com.airline.payment.service
 
 import com.airline.payment.config.PaymentConfig
+import com.airline.payment.domain.model.PaymentAggregate
+import com.airline.payment.domain.repository.PaymentDomainRepository
+import com.airline.payment.domain.service.PaymentDomainService
+import com.airline.payment.domain.valueobject.PaymentId
+import com.airline.payment.domain.exception.PaymentAlreadyProcessedException
+import com.airline.payment.domain.exception.InvalidPaymentOperationException
 import com.airline.payment.dto.PaymentRequest
 import com.airline.payment.dto.PaymentResponse
 import com.airline.payment.dto.PaymentStatus
@@ -31,7 +37,8 @@ import java.util.*
 @Service
 class PaymentService (
     private val kafkaTemplate: KafkaTemplate<String, String>,
-    private val paymentRepository: PaymentRepository,
+    private val paymentDomainRepository: PaymentDomainRepository,
+    private val paymentDomainService: PaymentDomainService,
     private val paymentMapper: PaymentMapper,
     private val paymentConfig: PaymentConfig
 ) {
@@ -53,26 +60,45 @@ class PaymentService (
         validatePaymentRequest(request)
         
         val paymentId = generatePaymentId()
-        val payment = createPaymentEntity(request, paymentId)
         
-        // 결제 시스템 연동 시뮬레이션
-        val isSuccessful = processExternalPayment(request)
+        // 도메인 애그리게이트 생성
+        val paymentAggregate = PaymentAggregate.create(
+            paymentId = paymentId,
+            reservationId = request.reservationId,
+            amount = request.amount,
+            paymentMethod = request.paymentMethod,
+            customerName = request.customerInfo?.name ?: "",
+            customerEmail = request.customerInfo?.email ?: ""
+        )
         
-        if (!isSuccessful) {
-            updatePaymentResult(payment, false)
-            paymentRepository.save(payment)
-            throw PaymentProcessingException("External payment system declined the transaction")
+        // 결제 가능 여부 검증
+        if (!paymentDomainService.canProcessPayment(paymentAggregate)) {
+            throw PaymentProcessingException("Payment cannot be processed")
         }
         
-        // 결제 성공 처리
-        updatePaymentResult(payment, true)
-        val savedPayment = paymentRepository.save(payment)
+        // 외부 결제 시스템 연동
+        val processingResult = paymentDomainService.processExternalPayment(paymentAggregate)
         
-        // 성공 이벤트 발행
-        publishPaymentApprovedEvent(request.reservationId)
-        
-        logger.info("결제 처리 완료: {} - {}", paymentId, savedPayment.status)
-        return paymentMapper.toResponse(savedPayment)
+        if (processingResult.isSuccess()) {
+            try {
+                paymentAggregate.approve()
+                val savedPayment = paymentDomainRepository.save(paymentAggregate)
+                
+                // 성공 이벤트 발행
+                publishPaymentApprovedEvent(request.reservationId)
+                
+                logger.info("결제 처리 완료: {} - {}", paymentId, savedPayment.getStatus())
+                return paymentMapper.toResponse(savedPayment)
+                
+            } catch (e: PaymentAlreadyProcessedException) {
+                logger.error("Payment already processed: {}", e.message)
+                throw PaymentProcessingException("Payment already processed")
+            }
+        } else {
+            paymentAggregate.reject(processingResult.message)
+            paymentDomainRepository.save(paymentAggregate)
+            throw PaymentProcessingException("External payment system declined: ${processingResult.message}")
+        }
     }
     
     /**
@@ -88,7 +114,8 @@ class PaymentService (
             throw InvalidPaymentRequestException("Payment ID cannot be blank")
         }
         
-        val payment = paymentRepository.findById(paymentId)
+        val domainPaymentId = PaymentId.of(paymentId)
+        val payment = paymentDomainRepository.findById(domainPaymentId)
             ?: throw PaymentNotFoundException(paymentId)
             
         return paymentMapper.toResponse(payment)
@@ -110,38 +137,34 @@ class PaymentService (
             throw InvalidPaymentRequestException("Payment ID cannot be blank")
         }
         
-        val payment = paymentRepository.findById(paymentId)
+        val domainPaymentId = PaymentId.of(paymentId)
+        val payment = paymentDomainRepository.findById(domainPaymentId)
             ?: throw PaymentNotFoundException(paymentId)
         
-        if (!canCancelPayment(payment)) {
-            if (payment.status == PaymentStatus.CANCELLED) {
+        if (!payment.canBeCancelled()) {
+            if (payment.getStatus() == com.airline.payment.domain.valueobject.PaymentStatus.CANCELLED) {
                 throw PaymentAlreadyCancelledException(paymentId)
             } else {
-                throw InvalidPaymentRequestException("Payment $paymentId cannot be cancelled (status: ${payment.status})")
+                throw InvalidPaymentRequestException("Payment $paymentId cannot be cancelled (status: ${payment.getStatus()})")
             }
         }
         
-        return processCancellation(payment, paymentId)
-    }
-    
-    /**
-     * 외부 결제 시스템과의 연동을 시뮬레이션합니다.
-     * 
-     * 결제 금액에 따라 차등화된 성공률을 적용:
-     * - 100만원 초과: 70% 성공률
-     * - 50만원 초과: 90% 성공률  
-     * - 50만원 이하: 95% 성공률
-     */
-    private fun processExternalPayment(request: PaymentRequest): Boolean {
-        val thresholds = paymentConfig.amountThresholds
-        val successRates = paymentConfig.successRates
-        
-        return when {
-            request.amount > thresholds.high -> Math.random() < successRates.highAmount
-            request.amount > thresholds.medium -> Math.random() < successRates.mediumAmount
-            else -> Math.random() < successRates.lowAmount
+        return try {
+            payment.cancel()
+            val cancelledPayment = paymentDomainRepository.save(payment)
+            
+            // 취소 이벤트 발행
+            kafkaTemplate.send("payment.cancelled", "Payment cancelled: $paymentId")
+            logger.info("결제 취소 완료: {}", paymentId)
+            
+            paymentMapper.toResponse(cancelledPayment)
+        } catch (e: InvalidPaymentOperationException) {
+            logger.error("Invalid payment operation: {}", e.message)
+            throw InvalidPaymentRequestException(e.message ?: "Invalid payment operation")
         }
     }
+    
+
     
     /**
      * 결제 ID를 생성합니다.
@@ -177,20 +200,8 @@ class PaymentService (
         } ?: throw InvalidPaymentRequestException("Customer information is required")
     }
     
-    /**
-     * 결제 요청으로부터 결제 엔티티를 생성합니다.
-     */
-    private fun createPaymentEntity(request: PaymentRequest, paymentId: String) =
-        paymentMapper.toEntity(request, paymentId)
-    
-    /**
-     * 결제 결과를 엔티티에 반영합니다.
-     */
-    private fun updatePaymentResult(payment: Payment, isSuccessful: Boolean) {
-        payment.status = if (isSuccessful) PaymentStatus.SUCCESS else PaymentStatus.FAILED
-        payment.message = if (isSuccessful) "결제 성공" else "결제 실패"
-    }
-    
+
+
     /**
      * 결제 승인 이벤트를 발행합니다.
      */
@@ -198,29 +209,8 @@ class PaymentService (
         kafkaTemplate.send("payment.approved", "Payment approved for reservation: $reservationId")
     }
     
-    /**
-     * 결제 취소 가능 여부를 확인합니다.
-     */
-    private fun canCancelPayment(payment: Payment?): Boolean {
-        return payment != null && payment.status == PaymentStatus.SUCCESS
-    }
-    
-    /**
-     * 결제 취소 처리를 수행합니다.
-     */
-    private fun processCancellation(payment: Payment, paymentId: String): PaymentResponse {
-        payment.status = PaymentStatus.CANCELLED
-        payment.message = "결제 취소됨"
-        
-        val cancelledPayment = paymentRepository.save(payment)
-        
-        // 취소 이벤트 발행
-        kafkaTemplate.send("payment.cancelled", "Payment cancelled: $paymentId")
-        logger.info("결제 취소 완료: {}", paymentId)
-        
-        return paymentMapper.toResponse(cancelledPayment)
-    }
-    
+
+
     // 기존 메서드 호환성 유지
     fun pay() {
         kafkaTemplate.send("payment.approved","A payment is approved")
