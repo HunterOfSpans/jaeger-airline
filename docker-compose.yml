@@ -186,4 +186,4 @@ services:
 networks:
   jaeger:
     driver: bridge
-    external: true
+    name: jaeger

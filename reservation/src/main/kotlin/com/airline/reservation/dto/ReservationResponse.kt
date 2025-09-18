@@ -17,5 +17,5 @@ data class ReservationResponse(
 )
 
 enum class ReservationStatus {
-    PENDING, CONFIRMED, CANCELLED, FAILED
+    PENDING, SEAT_RESERVED, PAYMENT_COMPLETED, CONFIRMED, CANCELLED, FAILED
 }

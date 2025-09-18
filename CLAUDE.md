@@ -142,3 +142,34 @@ jaeger-airline/
 - **Circuit Breaker 설정**: `reservation/src/main/resources/application-circuit.yml`
 - **OpenTelemetry 설정**: 각 서비스의 `OpenTelemetryConfig.java/kt`
 - **Kafka 설정**: 각 서비스의 `KafkaProducerConfig.java/kt`
+
+## 개발 가이드라인
+
+### 코드 스타일
+- **Java**: Google Java Style Guide 준수
+- **Kotlin**: 공식 Kotlin Coding Conventions 준수
+- **빌드**: `./gradlew build` 성공 후 코드 변경 완료
+- **테스트**: `./gradlew test` 실행하여 회귀 테스트 확인
+
+### 분산 추적 구현 원칙
+- **Span 생성**: 각 서비스 경계마다 새로운 span 생성
+- **컨텍스트 전파**: HTTP 헤더와 Kafka 헤더를 통한 trace context 전파
+- **에러 처리**: 예외 발생 시 span에 에러 정보 기록
+- **메타데이터**: 비즈니스 로직 관련 태그 추가 (flightId, reservationId 등)
+
+### 서비스 간 통신 패턴
+- **동기 통신**: OpenFeign + Circuit Breaker
+- **비동기 통신**: Kafka + 멱등성 보장
+- **장애 대응**: Saga 패턴으로 보상 트랜잭션 구현
+
+### 로컬 개발 환경 설정
+```bash
+# 인프라 서비스만 시작 (개발 시)
+docker compose -f docker-compose-kafka.yml up -d
+
+# 특정 서비스만 재빌드
+cd [service-name] && ./gradlew bootRun
+
+# 전체 시스템 재시작
+./rebuild-and-restart.sh
+```

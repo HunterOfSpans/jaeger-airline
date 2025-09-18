@@ -1,5 +1,7 @@
 package com.airline.reservation.api
 
+import arrow.core.Either
+import com.airline.reservation.common.DomainError
 import com.airline.reservation.dto.ReservationRequest
 import com.airline.reservation.dto.ReservationResponse
 import com.airline.reservation.service.ReservationService
@@ -29,9 +31,11 @@ class ReservationController(
      * @return 생성된 예약 정보
      */
     @PostMapping
-    fun createReservation(@RequestBody request: ReservationRequest): ResponseEntity<ReservationResponse> {
-        val response = reservationService.createReservation(request)
-        return ResponseEntity.ok(response)
+    suspend fun createReservation(@RequestBody request: ReservationRequest): ResponseEntity<ReservationResponse> {
+        return when (val result = reservationService.createReservation(request)) {
+            is Either.Left -> ResponseEntity.badRequest().build()
+            is Either.Right -> ResponseEntity.ok(result.value)
+        }
     }
     
     /**
@@ -41,12 +45,10 @@ class ReservationController(
      * @return 예약 정보, 존재하지 않으면 404 Not Found
      */
     @GetMapping("/{reservationId}")
-    fun getReservationById(@PathVariable reservationId: String): ResponseEntity<ReservationResponse> {
-        val reservation = reservationService.getReservationById(reservationId)
-        return if (reservation != null) {
-            ResponseEntity.ok(reservation)
-        } else {
-            ResponseEntity.notFound().build()
+    suspend fun getReservationById(@PathVariable reservationId: String): ResponseEntity<ReservationResponse> {
+        return when (val result = reservationService.getReservationById(reservationId)) {
+            is Either.Left -> ResponseEntity.notFound().build()
+            is Either.Right -> ResponseEntity.ok(result.value)
         }
     }
     
@@ -57,12 +59,10 @@ class ReservationController(
      * @return 취소된 예약 정보, 실패 시 400 Bad Request
      */
     @PostMapping("/{reservationId}/cancel")
-    fun cancelReservation(@PathVariable reservationId: String): ResponseEntity<ReservationResponse> {
-        val cancelledReservation = reservationService.cancelReservation(reservationId)
-        return if (cancelledReservation != null) {
-            ResponseEntity.ok(cancelledReservation)
-        } else {
-            ResponseEntity.badRequest().build()
+    suspend fun cancelReservation(@PathVariable reservationId: String): ResponseEntity<ReservationResponse> {
+        return when (val result = reservationService.cancelReservation(reservationId)) {
+            is Either.Left -> ResponseEntity.badRequest().build()
+            is Either.Right -> ResponseEntity.ok(result.value)
         }
     }
     
