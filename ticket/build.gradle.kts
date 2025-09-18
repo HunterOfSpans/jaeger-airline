@@ -55,6 +55,7 @@ dependencies {
 	testImplementation ("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
 	testImplementation ("org.jetbrains.kotlin:kotlin-test-junit5")
+	testImplementation ("org.mockito.kotlin:mockito-kotlin:5.4.0")
 
 	implementation ("io.micrometer:micrometer-tracing-bridge-otel")
 	implementation ("io.github.openfeign:feign-micrometer:13.6")

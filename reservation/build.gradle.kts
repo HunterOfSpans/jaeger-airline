@@ -35,6 +35,13 @@ dependencies {
 	// kotlin
 	implementation ("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation ("org.jetbrains.kotlin:kotlin-reflect")
+	implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+	implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.8.0")
+	implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.8.0")
+
+	// Arrow 함수형 프로그래밍
+	implementation ("io.arrow-kt:arrow-core:1.2.1")
+	implementation ("io.arrow-kt:arrow-fx-coroutines:1.2.1")
 
 	// spring
 	implementation ("org.springframework.boot:spring-boot-starter-actuator")
@@ -56,8 +63,8 @@ dependencies {
 	// testing
 	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
 	testImplementation ("org.jetbrains.kotlin:kotlin-test-junit5")
-	testRuntimeOnly ("org.junit.platform:junit-platform-launcher")
 	testImplementation ("org.springframework.boot:spring-boot-starter-test")
+	testImplementation ("org.mockito.kotlin:mockito-kotlin:5.4.0")
 }
 
 kotlin {

@@ -1,0 +1,31 @@
+spring:
+  profiles:
+    active: test
+  kafka:
+    bootstrap-servers: ${SPRING_EMBEDDED_KAFKA_BROKERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+feign:
+  url:
+    flight: http://localhost:8080
+    payment: http://localhost:8082
+    ticket: http://localhost:8081
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
