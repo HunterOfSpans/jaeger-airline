@@ -56,7 +56,7 @@ class TicketRepository {
      * @param reservationId 예약 식별자
      * @return 해당 예약의 티켓 목록
      */
-    fun findByReservationId(reservationId: String): List<Ticket> {
+    fun findAllByReservationId(reservationId: String): List<Ticket> {
         return tickets.values.filter { it.reservationId == reservationId }
     }
     
@@ -88,6 +88,30 @@ class TicketRepository {
      */
     fun findByPassengerEmail(email: String): List<Ticket> {
         return tickets.values.filter { it.passengerEmail == email }
+    }
+
+    
+    /**
+     * 예약 ID로 단일 티켓을 조회합니다.
+     * 
+     * @param reservationId 예약 식별자
+     * @return 해당 예약의 첫 번째 티켓, 존재하지 않으면 null
+     */
+    fun findByReservationId(reservationId: String): Ticket? {
+        return tickets.values.firstOrNull { it.reservationId == reservationId }
+    }
+    
+    /**
+     * 항공편 ID와 좌석 번호로 티켓을 조회합니다.
+     * 
+     * @param flightId 항공편 식별자
+     * @param seatNumber 좌석 번호
+     * @return 해당 좌석의 티켓, 존재하지 않으면 null
+     */
+    fun findByFlightIdAndSeatNumber(flightId: String, seatNumber: String): Ticket? {
+        return tickets.values.firstOrNull { 
+            it.flightId == flightId && it.seatNumber == seatNumber 
+        }
     }
     
     /**

@@ -1,5 +1,7 @@
 package com.airline.ticket.mapper
 
+import com.airline.ticket.domain.model.TicketAggregate
+import com.airline.ticket.domain.valueobject.TicketStatus as DomainTicketStatus
 import com.airline.ticket.dto.TicketRequest
 import com.airline.ticket.dto.TicketResponse
 import com.airline.ticket.dto.TicketStatus
@@ -78,5 +80,101 @@ class TicketMapper {
      */
     fun toResponseList(tickets: List<Ticket>): List<TicketResponse> {
         return tickets.map { toResponse(it) }
+    }
+
+    
+    /**
+     * TicketAggregate를 Ticket 엔티티로 변환합니다.
+     * 
+     * @param aggregate 변환할 TicketAggregate
+     * @return 변환된 Ticket 엔티티
+     */
+    fun toEntity(aggregate: TicketAggregate): Ticket {
+        return Ticket(
+            ticketId = aggregate.getTicketId(),
+            status = convertToEntityStatus(aggregate.getStatus()),
+            reservationId = aggregate.getReservationId(),
+            paymentId = aggregate.getPaymentId(),
+            flightId = aggregate.getFlightId(),
+            passengerName = aggregate.getPassengerName(),
+            passengerEmail = aggregate.getPassengerEmail(),
+            passengerPhone = aggregate.getPassengerPhone(),
+            passportNumber = aggregate.getPassportNumber(),
+            seatNumber = aggregate.getSeatNumber(),
+            issuedAt = aggregate.getIssuedAt() ?: LocalDateTime.now(),
+            message = aggregate.getMessage()
+        )
+    }
+    
+    /**
+     * Ticket 엔티티를 TicketAggregate로 변환합니다.
+     * 
+     * @param ticket 변환할 Ticket 엔티티
+     * @return 변환된 TicketAggregate
+     */
+    fun toDomainAggregate(ticket: Ticket): TicketAggregate {
+        return TicketAggregate.reconstruct(
+            ticketId = ticket.ticketId,
+            reservationId = ticket.reservationId,
+            paymentId = ticket.paymentId,
+            flightId = ticket.flightId,
+            passengerName = ticket.passengerName ?: "",
+            passengerEmail = ticket.passengerEmail ?: "",
+            passengerPhone = ticket.passengerPhone,
+            passportNumber = ticket.passportNumber,
+            seatNumber = ticket.seatNumber,
+            status = convertToDomainStatus(ticket.status),
+            issuedAt = ticket.issuedAt,
+            message = ticket.message
+        )
+    }
+    
+    /**
+     * TicketAggregate를 TicketResponse로 변환합니다.
+     * 
+     * @param aggregate 변환할 TicketAggregate
+     * @return 변환된 TicketResponse
+     */
+    fun toResponse(aggregate: TicketAggregate): TicketResponse {
+        return TicketResponse(
+            ticketId = aggregate.getTicketId(),
+            status = convertToEntityStatus(aggregate.getStatus()),
+            reservationId = aggregate.getReservationId(),
+            paymentId = aggregate.getPaymentId() ?: "",
+            flightId = aggregate.getFlightId(),
+            passengerInfo = com.airline.ticket.dto.PassengerInfo(
+                name = aggregate.getPassengerName(),
+                email = aggregate.getPassengerEmail(),
+                phone = aggregate.getPassengerPhone() ?: "",
+                passportNumber = aggregate.getPassportNumber()
+            ),
+            seatNumber = aggregate.getSeatNumber(),
+            issuedAt = aggregate.getIssuedAt(),
+            message = aggregate.getMessage()
+        )
+    }
+    
+    /**
+     * 도메인 TicketStatus를 엔티티 TicketStatus로 변환
+     */
+    private fun convertToEntityStatus(domainStatus: DomainTicketStatus): TicketStatus {
+        return when (domainStatus) {
+            DomainTicketStatus.PENDING -> TicketStatus.PENDING
+            DomainTicketStatus.ISSUED -> TicketStatus.ISSUED
+            DomainTicketStatus.CANCELLED -> TicketStatus.CANCELLED
+        }
+    }
+    
+    /**
+     * 엔티티 TicketStatus를 도메인 TicketStatus로 변환
+     */
+    private fun convertToDomainStatus(entityStatus: TicketStatus): DomainTicketStatus {
+        return when (entityStatus) {
+            TicketStatus.PENDING -> DomainTicketStatus.PENDING
+            TicketStatus.ISSUED -> DomainTicketStatus.ISSUED
+            TicketStatus.CANCELLED -> DomainTicketStatus.CANCELLED
+            TicketStatus.USED -> DomainTicketStatus.ISSUED
+            TicketStatus.EXPIRED -> DomainTicketStatus.CANCELLED
+        }
     }
 }

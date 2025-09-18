@@ -10,10 +10,10 @@ data class TicketResponse(
     val flightId: String,
     val passengerInfo: PassengerInfo,
     val seatNumber: String,
-    val issuedAt: LocalDateTime,
+    val issuedAt: LocalDateTime?,
     val message: String
 )
 
 enum class TicketStatus {
-    ISSUED, CANCELLED, USED, EXPIRED
+    PENDING, ISSUED, CANCELLED, USED, EXPIRED
 }
