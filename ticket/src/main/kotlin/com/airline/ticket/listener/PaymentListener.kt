@@ -1,6 +1,6 @@
 package com.airline.ticket.listener
 
-import com.airline.ticket.annotation.KafkaOtelTrace
+import com.airline.tracing.annotation.KafkaOtelTrace
 import com.airline.ticket.service.TicketService
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.messaging.MessageHeaders

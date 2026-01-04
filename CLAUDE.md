@@ -28,7 +28,7 @@
 ## 프로젝트 빌드 및 실행
 ### 빠른 시작
 ```bash
-./build-and-run.sh  # 모든 서비스 빌드 및 실행
+./script/build-and-run.sh  # 모든 서비스 빌드 및 실행
 ```
 
 ### 개별 서비스 빌드
@@ -47,8 +47,8 @@ docker compose -f docker-compose-kafka.yml -f docker-compose.yml up -d
 ## 테스트 명령어
 ### API 테스트
 ```bash
-./request.sh                    # 전체 예약 플로우 테스트
-./test-api.sh                   # API 엔드포인트 테스트
+./script/request.sh             # 전체 예약 플로우 테스트
+./script/test-api.sh            # API 엔드포인트 테스트
 ```
 
 ### 헬스 체크
@@ -98,22 +98,40 @@ curl http://localhost:8083/actuator/circuitbreakers
 ## 프로젝트 구조
 ```
 jaeger-airline/
+├── common/
+│   └── kafka-tracing/         # 공통 Kafka 트레이싱 라이브러리
+│       ├── annotation/        # @KafkaOtelTrace 어노테이션
+│       ├── aspect/            # KafkaTracingAspect (AOP)
+│       └── config/            # 자동 설정
 ├── flight/                    # Flight Service (Java)
-├── payment/                   # Payment Service (Kotlin)  
+├── payment/                   # Payment Service (Kotlin)
 ├── ticket/                    # Ticket Service (Kotlin)
 ├── reservation/               # Reservation Service (Kotlin)
+├── docs/
+│   ├── architecture/          # 아키텍처 문서
+│   └── explain/               # 기술 설명 문서
+├── script/                    # 빌드/테스트 스크립트
 ├── docker-compose-kafka.yml   # Kafka 클러스터 설정
 ├── docker-compose.yml         # Jaeger 및 전체 인프라
-├── build-and-run.sh          # 빌드 및 실행 스크립트
-├── request.sh                # 테스트 요청 스크립트
-└── README.md                 # 상세 문서
+└── README.md                  # 상세 문서
 ```
+
+## 공통 라이브러리 (Gradle Composite Build)
+각 서비스는 `common/kafka-tracing` 모듈을 의존성으로 사용:
+```kotlin
+// settings.gradle.kts
+includeBuild("../common/kafka-tracing")
+
+// build.gradle.kts
+implementation("com.airline:kafka-tracing")
+```
+자세한 내용: `docs/architecture/library-sharing-guide.md`
 
 ## 분산 추적 테스트 명령어
 
 ### OpenFeign 동기 추적 테스트
 ```bash
-./test-feign-tracing.sh          # OpenFeign 기반 동기 호출 체인 테스트
+./script/test-feign-tracing.sh   # OpenFeign 기반 동기 호출 체인 테스트
 ```
 **엔드포인트:**
 - `POST /v1/tracing/feign/simple-flow` - 간단한 동기 호출 체인
@@ -123,7 +141,7 @@ jaeger-airline/
 
 ### Kafka 비동기 추적 테스트
 ```bash
-./test-kafka-tracing.sh          # Kafka 기반 이벤트 체인 테스트
+./script/test-kafka-tracing.sh   # Kafka 기반 이벤트 체인 테스트
 ```
 **엔드포인트:**
 - `POST /v1/tracing/kafka/simple-events` - 간단한 이벤트 체인
@@ -171,5 +189,5 @@ docker compose -f docker-compose-kafka.yml up -d
 cd [service-name] && ./gradlew bootRun
 
 # 전체 시스템 재시작
-./rebuild-and-restart.sh
+./script/rebuild-and-restart.sh
 ```

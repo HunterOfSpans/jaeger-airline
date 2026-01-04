@@ -32,6 +32,9 @@ repositories {
 }
 
 dependencies {
+	// Common Libraries (Composite Build)
+	implementation("com.airline:kafka-tracing")
+
 	implementation ("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation ("org.jetbrains.kotlin:kotlin-reflect")
 

@@ -1,6 +1,6 @@
 package com.airline.payment.listener
 
-import com.airline.payment.annotation.KafkaOtelTrace
+import com.airline.tracing.annotation.KafkaOtelTrace
 import com.airline.payment.service.PaymentService
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.messaging.MessageHeaders

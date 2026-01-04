@@ -1,6 +1,6 @@
 package com.airline.flight.listener;
 
-import com.airline.flight.annotation.KafkaOtelTrace;
+import com.airline.tracing.annotation.KafkaOtelTrace;
 import com.airline.flight.exception.KafkaMessageProcessingException;
 import com.airline.flight.service.FlightService;
 import com.fasterxml.jackson.databind.JsonNode;
