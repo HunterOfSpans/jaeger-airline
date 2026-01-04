@@ -108,8 +108,11 @@ jaeger-airline/
 ├── ticket/                    # Ticket Service (Kotlin)
 ├── reservation/               # Reservation Service (Kotlin)
 ├── docs/
-│   ├── architecture/          # 아키텍처 문서
-│   └── explain/               # 기술 설명 문서
+│   ├── getting-started/       # 시작하기 가이드
+│   ├── architecture/          # 아키텍처 설계 문서
+│   ├── guides/                # 실습 가이드 (보안, 트레이싱)
+│   ├── reference/             # 기술 참조 문서
+│   └── troubleshooting/       # 문제 해결 가이드
 ├── script/                    # 빌드/테스트 스크립트
 ├── docker-compose-kafka.yml   # Kafka 클러스터 설정
 ├── docker-compose.yml         # Jaeger 및 전체 인프라
