@@ -356,19 +356,19 @@ jaeger-airline/
    - `feign-micrometer` 의존성으로 완전 자동화
    - W3C Trace Context 표준 준수
    - HTTP 헤더 자동 전파 (`traceparent`, `tracestate`)
-   - 👉 자세한 내용: [OpenFeign-Distributed-Tracing-Guide.md](OpenFeign-Distributed-Tracing-Guide.md)
+   - 👉 자세한 내용: [OpenFeign-Distributed-Tracing-Guide.md](docs/OpenFeign-Distributed-Tracing-Guide.md)
 
 2. **Kafka 수동 추적**:
    - `@KafkaOtelTrace` 커스텀 어노테이션
    - AOP 기반 trace context 추출/전파
    - MessageHeaders 우선 + ConsumerRecord 호환성 지원
-   - 👉 자세한 내용: [Kafka-Distributed-Tracing-Complete-Guide.md](Kafka-Distributed-Tracing-Complete-Guide.md)
+   - 👉 자세한 내용: [Kafka-Distributed-Tracing-Complete-Guide.md](docs/Kafka-Distributed-Tracing-Complete-Guide.md)
 
 3. **Jaeger CQRS 아키텍처**:
    - Collector (Write Side) / Query (Read Side) 분리
    - Elasticsearch 기반 강력한 검색 능력
    - 독립적 스케일링 및 성능 최적화
-   - 👉 자세한 내용: [Jaeger-CQRS-Architecture-Guide.md](Jaeger-CQRS-Architecture-Guide.md)
+   - 👉 자세한 내용: [Jaeger-CQRS-Architecture-Guide.md](docs/Jaeger-CQRS-Architecture-Guide.md)
 
 ### 🎓 학습 목표
 
