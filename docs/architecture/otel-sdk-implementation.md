@@ -1,7 +1,18 @@
 # OpenTelemetry SDK 기반 분산 추적 구현 가이드
 
-> 작성일: 2026-01-04
-> 프로젝트: Jaeger Airline MSA
+> **작성일**: 2026-01-04 | **버전**: OpenTelemetry 2.11.0, Spring Boot 3.3.5 | **난이도**: 중급
+
+---
+
+## 목차
+
+- [1. 왜 OTel SDK 방식을 선택했는가?](#1-왜-otel-sdk-방식을-선택했는가)
+- [2. 아키텍처 개요](#2-아키텍처-개요)
+- [3. 핵심 구현 상세](#3-핵심-구현-상세)
+- [4. Span 속성 (Semantic Conventions)](#4-span-속성-semantic-conventions)
+- [5. Jaeger에서 확인](#5-jaeger에서-확인)
+- [6. 트러블슈팅](#6-트러블슈팅)
+- [7. 참고 자료](#7-참고-자료)
 
 ---
 

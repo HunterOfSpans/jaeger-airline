@@ -35,25 +35,25 @@ cd jaeger-airline
 ### 2. 모든 서비스 시작
 ```bash
 # 기본 빌드 및 실행 (권장)
-./build-and-run.sh
+./script/build-and-run.sh
 
 # 또는 완전 재빌드 및 재시작 (Docker 이미지까지 재생성)
-./rebuild-and-restart.sh
+./script/rebuild-and-restart.sh
 ```
 
 ### 3. 분산 추적 테스트
 ```bash
 # 기본 예약 플로우 테스트
-./request.sh
+./script/request.sh
 
 # OpenFeign 동기 호출 분산 추적 테스트
-./test-feign-tracing.sh
+./script/test-feign-tracing.sh
 
 # Kafka 비동기 메시징 분산 추적 테스트
-./test-kafka-tracing.sh
+./script/test-kafka-tracing.sh
 
 # 전체 API 엔드포인트 테스트
-./test-api.sh
+./script/test-api.sh
 ```
 
 ### 4. 서비스 접근 포인트
@@ -225,7 +225,7 @@ curl http://localhost:8083/actuator/health
 
 ### 1. 통합 테스트 스크립트
 
-#### `./test-feign-tracing.sh` - OpenFeign 동기 호출 추적
+#### `./script/test-feign-tracing.sh` - OpenFeign 동기 호출 추적
 ```bash
 # 실행 후 Jaeger UI에서 확인 가능한 추적:
 # - 간단한 동기 호출 체인
@@ -234,7 +234,7 @@ curl http://localhost:8083/actuator/health
 # - 병렬 호출 테스트
 ```
 
-#### `./test-kafka-tracing.sh` - Kafka 비동기 메시징 추적
+#### `./script/test-kafka-tracing.sh` - Kafka 비동기 메시징 추적
 ```bash
 # 실행 후 확인 가능한 추적:
 # - 간단한 이벤트 체인 (reservation → payment → ticket)
@@ -243,7 +243,7 @@ curl http://localhost:8083/actuator/health
 # - 다중 토픽 이벤트 처리
 ```
 
-#### `./test-api.sh` - 전체 API 엔드포인트 테스트
+#### `./script/test-api.sh` - 전체 API 엔드포인트 테스트
 ```bash
 # 모든 서비스의 API 엔드포인트 검증:
 # - 각 서비스별 헬스 체크
@@ -255,7 +255,7 @@ curl http://localhost:8083/actuator/health
 
 1. **테스트 실행**:
    ```bash
-   ./test-feign-tracing.sh  # 또는 다른 테스트 스크립트
+   ./script/test-feign-tracing.sh  # 또는 다른 테스트 스크립트
    ```
 
 2. **Jaeger UI 접속**: http://localhost:16686
@@ -330,22 +330,25 @@ jaeger-airline/
 │   │   └── config/           # Circuit Breaker + OpenTelemetry 설정
 │   └── src/main/resources/
 │       └── application-circuit.yml # Circuit Breaker 상세 설정
-├── 📋 인프라 설정
-├── docker-compose-kafka.yml   # Kafka 3-node 클러스터
-├── docker-compose.yml         # Jaeger + Elasticsearch + Kibana
-├── 📋 실행 스크립트
-├── build-and-run.sh           # 기본 빌드 및 실행
-├── rebuild-and-restart.sh     # 완전 재빌드 및 재시작
-├── 📋 테스트 스크립트
-├── request.sh                 # 기본 예약 플로우 테스트
-├── test-api.sh               # 전체 API 엔드포인트 테스트
-├── test-feign-tracing.sh     # OpenFeign 분산 추적 테스트
-├── test-kafka-tracing.sh     # Kafka 분산 추적 테스트
-├── 📋 분산 추적 문서
-├── OpenFeign-Distributed-Tracing-Guide.md    # OpenFeign 자동 추적 가이드
-├── Kafka-Distributed-Tracing-Complete-Guide.md # Kafka 수동 추적 완전 가이드
-├── Jaeger-CQRS-Architecture-Guide.md         # Jaeger CQRS 아키텍처 분석
-└── README.md                  # 이 파일
+├── common/                     # 공통 라이브러리
+│   └── kafka-tracing/          # Kafka 분산 추적 라이브러리
+│       ├── annotation/         # @KafkaOtelTrace 어노테이션
+│       ├── aspect/             # AOP 기반 추적 처리
+│       └── config/             # Spring Boot 자동 구성
+├── script/                     # 실행 및 테스트 스크립트
+│   ├── build-and-run.sh        # 기본 빌드 및 실행
+│   ├── rebuild-and-restart.sh  # 완전 재빌드 및 재시작
+│   ├── request.sh              # 기본 예약 플로우 테스트
+│   ├── test-api.sh             # 전체 API 엔드포인트 테스트
+│   ├── test-feign-tracing.sh   # OpenFeign 분산 추적 테스트
+│   └── test-kafka-tracing.sh   # Kafka 분산 추적 테스트
+├── docs/                       # 기술 문서
+│   ├── architecture/           # 아키텍처 설계 문서
+│   ├── explain/                # 개념 설명 문서
+│   └── troubleshooting/        # 문제 해결 가이드
+├── docker-compose-kafka.yml    # Kafka 3-node 클러스터
+├── docker-compose.yml          # Jaeger + Elasticsearch + Kibana
+└── README.md                   # 이 파일
 ```
 
 ## 📚 분산 추적 심화 학습
@@ -356,19 +359,19 @@ jaeger-airline/
    - `feign-micrometer` 의존성으로 완전 자동화
    - W3C Trace Context 표준 준수
    - HTTP 헤더 자동 전파 (`traceparent`, `tracestate`)
-   - 👉 자세한 내용: [OpenFeign-Distributed-Tracing-Guide.md](docs/OpenFeign-Distributed-Tracing-Guide.md)
+   - 👉 자세한 내용: [OpenFeign-Distributed-Tracing-Guide.md](docs/guides/OpenFeign-Distributed-Tracing-Guide.md)
 
 2. **Kafka 수동 추적**:
    - `@KafkaOtelTrace` 커스텀 어노테이션
    - AOP 기반 trace context 추출/전파
    - MessageHeaders 우선 + ConsumerRecord 호환성 지원
-   - 👉 자세한 내용: [Kafka-Distributed-Tracing-Complete-Guide.md](docs/Kafka-Distributed-Tracing-Complete-Guide.md)
+   - 👉 자세한 내용: [Kafka-Distributed-Tracing-Complete-Guide.md](docs/guides/Kafka-Distributed-Tracing-Complete-Guide.md)
 
 3. **Jaeger CQRS 아키텍처**:
    - Collector (Write Side) / Query (Read Side) 분리
    - Elasticsearch 기반 강력한 검색 능력
    - 독립적 스케일링 및 성능 최적화
-   - 👉 자세한 내용: [Jaeger-CQRS-Architecture-Guide.md](docs/Jaeger-CQRS-Architecture-Guide.md)
+   - 👉 자세한 내용: [Jaeger-CQRS-Architecture-Guide.md](docs/architecture/Jaeger-CQRS-Architecture-Guide.md)
 
 ### 🎓 학습 목표
 

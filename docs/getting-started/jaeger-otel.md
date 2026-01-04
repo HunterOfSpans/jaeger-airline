@@ -1,7 +1,19 @@
 # Spring Boot 3 + OpenTelemetry + Jaeger v2 개발 가이드
 
-> 작성일: 2026-01-04  
-> 기준 버전: Jaeger 2.13.0, Spring Boot 3.4.x, OpenTelemetry Java 1.36.0
+> **작성일**: 2026-01-04 | **버전**: Jaeger 2.13.0, Spring Boot 3.4.x, OpenTelemetry 1.36.0 | **난이도**: 입문
+
+---
+
+## 목차
+
+- [1. 핵심 개념 정리](#1-핵심-개념-정리)
+- [2. 배포 아키텍처](#2-배포-아키텍처)
+- [3. Spring Boot 3 연동](#3-spring-boot-3-연동)
+- [4. Jaeger v2 배포](#4-jaeger-v2-배포)
+- [5. 커스텀 Span 추가](#5-커스텀-span-추가)
+- [6. 주요 포트 정리](#6-주요-포트-정리)
+- [7. 트러블슈팅](#7-트러블슈팅)
+- [8. 참고 자료](#8-참고-자료)
 
 ---
 
