@@ -17,6 +17,7 @@ docs/
 │   ├── library-sharing-guide.md    # 공통 라이브러리 공유 가이드
 │   └── Jaeger-CQRS-Architecture-Guide.md  # Jaeger CQRS 아키텍처
 ├── guides/                   # 실습 가이드
+│   ├── distributed-tracing-overview.md  # 분산 추적 동작 원리 (통합)
 │   ├── security-guide.md           # 보안 가이드
 │   ├── OpenFeign-Distributed-Tracing-Guide.md   # OpenFeign 추적 가이드
 │   └── Kafka-Distributed-Tracing-Complete-Guide.md  # Kafka 추적 가이드
@@ -55,6 +56,7 @@ docs/
 
 | 문서 | 설명 | 난이도 |
 |------|------|--------|
+| [distributed-tracing-overview.md](guides/distributed-tracing-overview.md) | 분산 추적 동작 원리 통합 가이드 | 입문 |
 | [security-guide.md](guides/security-guide.md) | 시스템 보안 구성 가이드 | 중급 |
 | [OpenFeign-Distributed-Tracing-Guide.md](guides/OpenFeign-Distributed-Tracing-Guide.md) | OpenFeign 자동 분산 추적 | 중급 |
 | [Kafka-Distributed-Tracing-Complete-Guide.md](guides/Kafka-Distributed-Tracing-Complete-Guide.md) | Kafka 수동 분산 추적 구현 | 중급 |
