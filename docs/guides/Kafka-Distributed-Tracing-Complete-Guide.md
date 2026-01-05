@@ -265,12 +265,12 @@ class TicketListener(private val reservationService: ReservationService) {
 }
 ```
 
-## OpenTelemetry 자동 계측 현황 (2024년)
+## OpenTelemetry 자동 계측 현황 (2026년)
 
 ### 1. Spring Boot Starter 지원 범위
 
 ```yaml
-# 2024년 현재 지원되는 자동 계측
+# 2026년 현재 지원되는 자동 계측
 otel.instrumentation.kafka.enabled: true  # Producer 쪽 기본 지원
 ```
 

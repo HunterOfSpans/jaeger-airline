@@ -1,6 +1,6 @@
 # Spring Boot 3 + OpenTelemetry + Jaeger v2 개발 가이드
 
-> **작성일**: 2026-01-04 | **버전**: Jaeger 2.13.0, Spring Boot 3.4.x, OpenTelemetry 1.36.0 | **난이도**: 입문
+> **작성일**: 2026-01-05 | **버전**: Jaeger 2.10.0, Spring Boot 3.3.5, OpenTelemetry 2.11.0, Java 21 | **난이도**: 입문
 
 ---
 
@@ -196,7 +196,7 @@ docker run -d --name jaeger \
   -p 16686:16686 \
   -p 4317:4317 \
   -p 4318:4318 \
-  jaegertracing/jaeger:2.13.0
+  jaegertracing/jaeger:2.10.0
 ```
 
 **포트 설명**:
@@ -207,11 +207,9 @@ docker run -d --name jaeger \
 ### 4.2 Docker Compose (개발용 - Elasticsearch)
 
 ```yaml
-version: '3.8'
-
 services:
   jaeger:
-    image: jaegertracing/jaeger:2.13.0
+    image: jaegertracing/jaeger:2.10.0
     ports:
       - "16686:16686"
       - "4317:4317"
@@ -415,9 +413,9 @@ curl -X POST http://localhost:4318/v1/traces \
 
 ## 8. 참고 자료
 
-- [Jaeger 공식 문서](https://www.jaegertracing.io/docs/2.13/)
+- [Jaeger 공식 문서](https://www.jaegertracing.io/docs/latest/)
 - [OpenTelemetry Java 문서](https://opentelemetry.io/docs/languages/java/)
-- [Spring Boot Observability](https://spring.io/blog/2024/10/28/lets-use-opentelemetry-with-spring/)
+- [Spring Boot Observability](https://docs.spring.io/spring-boot/reference/actuator/tracing.html)
 - [Micrometer Tracing](https://micrometer.io/docs/tracing)
 
 ---
@@ -426,5 +424,5 @@ curl -X POST http://localhost:4318/v1/traces \
 
 | 컴포넌트 | 버전 | EOL |
 |---------|------|-----|
-| Jaeger v1 | 1.76.0 | 2025-12-31 |
-| Jaeger v2 | 2.13.0+ | - |
+| Jaeger v1 | 1.x | 2025-12-31 (지원 종료 예정) |
+| Jaeger v2 | 2.10.0+ | - (현재 권장) |

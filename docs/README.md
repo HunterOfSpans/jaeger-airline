@@ -111,8 +111,9 @@ docs/
 
 | 구성 요소 | 버전 |
 |-----------|------|
-| Jaeger | 2.6.0 |
+| Java | 21 |
+| Jaeger | 2.10.0 |
 | Spring Boot | 3.3.5 |
 | OpenTelemetry | 2.11.0 |
-| Elasticsearch | 8.x |
+| Elasticsearch | 8.13.0 |
 | Kafka | 3.x |
