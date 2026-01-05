@@ -1,0 +1,65 @@
+### ============================================
+### OpenFeign 동기 분산 추적 테스트
+### ============================================
+### Jaeger UI: http://localhost:16686
+### 테스트 후 Jaeger에서 트레이스 확인
+
+
+### ------------------------------------------
+### 1. 간단한 Feign 호출 체인 테스트
+### Flight -> Payment -> Ticket 순차 호출
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/feign/simple-flow
+Content-Type: application/json
+
+{
+  "flightId": "KE001",
+  "passengerName": "Test User"
+}
+
+
+### ------------------------------------------
+### 2. 복잡한 Feign 호출 체인 테스트
+### 전체 예약 프로세스 (Circuit Breaker 포함)
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/feign/complex-flow
+Content-Type: application/json
+
+{
+  "flightId": "KE001",
+  "passengerName": "Complex Flow User",
+  "seatClass": "BUSINESS"
+}
+
+
+### ------------------------------------------
+### 3. Circuit Breaker 동작 테스트
+### 의도적 실패로 Circuit Breaker 트리거
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/feign/circuit-breaker-test
+Content-Type: application/json
+
+{
+  "forceFailure": true,
+  "failureCount": 5
+}
+
+
+### ------------------------------------------
+### 4. 병렬 호출 테스트
+### 여러 서비스 동시 호출
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/feign/parallel-calls
+Content-Type: application/json
+
+{
+  "flightIds": ["KE001", "OZ456", "AA789"],
+  "checkAvailability": true
+}
+
+
+### ------------------------------------------
+### 5. Circuit Breaker 상태 확인
+### ------------------------------------------
+GET http://localhost:8083/actuator/circuitbreakers
+Accept: application/json

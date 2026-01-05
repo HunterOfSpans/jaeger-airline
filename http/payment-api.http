@@ -1,0 +1,54 @@
+### ============================================
+### Payment Service API (Port 8082)
+### ============================================
+### 결제 처리 및 검증
+
+
+### ------------------------------------------
+### 결제 처리
+### ------------------------------------------
+
+### 새 결제 생성
+POST http://localhost:8082/v1/payments
+Content-Type: application/json
+
+{
+  "reservationId": "RES-001",
+  "amount": 150000,
+  "currency": "KRW",
+  "paymentMethod": "CREDIT_CARD",
+  "cardNumber": "4111111111111111",
+  "cardExpiry": "12/25",
+  "cardCvv": "123"
+}
+
+###
+
+### 결제 상태 조회
+GET http://localhost:8082/v1/payments/PAY-001
+Accept: application/json
+
+
+### ------------------------------------------
+### 결제 취소/환불
+### ------------------------------------------
+
+### 결제 취소
+POST http://localhost:8082/v1/payments/PAY-001/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer cancellation",
+  "refundAmount": 150000
+}
+
+###
+
+### 부분 환불
+POST http://localhost:8082/v1/payments/PAY-001/refund
+Content-Type: application/json
+
+{
+  "refundAmount": 50000,
+  "reason": "Partial refund request"
+}

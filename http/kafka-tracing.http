@@ -1,0 +1,75 @@
+### ============================================
+### Kafka 비동기 분산 추적 테스트
+### ============================================
+### Jaeger UI: http://localhost:16686
+### Kafka UI: http://localhost:8085
+### 테스트 후 Jaeger에서 비동기 이벤트 체인 확인
+
+
+### ------------------------------------------
+### 1. 간단한 Kafka 이벤트 체인 테스트
+### Reservation -> Payment -> Ticket 이벤트 전파
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/kafka/simple-events
+Content-Type: application/json
+
+{
+  "eventType": "SIMPLE_FLOW",
+  "data": {
+    "flightId": "KE001",
+    "passengerName": "Kafka Test User"
+  }
+}
+
+
+### ------------------------------------------
+### 2. 복잡한 Kafka 이벤트 플로우 테스트
+### 다단계 비동기 이벤트 처리
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/kafka/complex-events
+Content-Type: application/json
+
+{
+  "flightId": "OZ456",
+  "passengerName": "Complex Event User",
+  "paymentMethod": "CREDIT_CARD",
+  "amount": 250000
+}
+
+
+### ------------------------------------------
+### 3. 실패 및 보상 트랜잭션 테스트
+### Saga 패턴 - 실패 시 보상 이벤트 발생
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/kafka/failure-compensation
+Content-Type: application/json
+
+{
+  "flightId": "FAIL001",
+  "simulateFailure": true,
+  "failAt": "payment"
+}
+
+
+### ------------------------------------------
+### 4. 다중 토픽 이벤트 테스트
+### 여러 토픽에 동시 이벤트 발행
+### ------------------------------------------
+POST http://localhost:8083/v1/tracing/kafka/multi-topic-events
+Content-Type: application/json
+
+{
+  "eventId": "MULTI-001",
+  "topics": ["analytics", "audit", "notification"],
+  "payload": {
+    "action": "RESERVATION_CREATED",
+    "timestamp": "{{$timestamp}}"
+  }
+}
+
+
+### ------------------------------------------
+### 5. 이벤트 처리 상태 조회
+### ------------------------------------------
+GET http://localhost:8083/v1/tracing/kafka/event-status/EVENT-001
+Accept: application/json

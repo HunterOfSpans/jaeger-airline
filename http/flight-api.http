@@ -1,0 +1,70 @@
+### ============================================
+### Flight Service API (Port 8080)
+### ============================================
+### 항공편 검색 및 좌석 관리
+
+
+### ------------------------------------------
+### 항공편 검색
+### ------------------------------------------
+
+### 항공편 검색 (서울 -> 제주)
+GET http://localhost:8080/v1/flights?from=ICN&to=CJU&date=2024-12-25
+Accept: application/json
+
+###
+
+### 항공편 검색 (서울 -> 부산)
+GET http://localhost:8080/v1/flights?from=ICN&to=PUS&date=2024-12-25
+Accept: application/json
+
+
+### ------------------------------------------
+### 좌석 가용성 확인
+### ------------------------------------------
+
+### KE001 항공편 좌석 가용성 확인
+POST http://localhost:8080/v1/flights/KE001/availability
+Content-Type: application/json
+
+{
+  "seatClass": "ECONOMY",
+  "passengerCount": 2
+}
+
+###
+
+### OZ456 항공편 좌석 가용성 확인
+POST http://localhost:8080/v1/flights/OZ456/availability
+Content-Type: application/json
+
+{
+  "seatClass": "BUSINESS",
+  "passengerCount": 1
+}
+
+
+### ------------------------------------------
+### 좌석 예약
+### ------------------------------------------
+
+### KE001 항공편 좌석 예약
+POST http://localhost:8080/v1/flights/KE001/reserve
+Content-Type: application/json
+
+{
+  "passengerName": "Hong Gildong",
+  "seatClass": "ECONOMY",
+  "seatNumber": "23A"
+}
+
+###
+
+### 좌석 예약 취소
+POST http://localhost:8080/v1/flights/KE001/cancel
+Content-Type: application/json
+
+{
+  "reservationId": "RES-001",
+  "seatNumber": "23A"
+}

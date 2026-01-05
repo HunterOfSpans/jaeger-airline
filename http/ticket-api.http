@@ -1,0 +1,57 @@
+### ============================================
+### Ticket Service API (Port 8081)
+### ============================================
+### 항공권 발급 및 관리
+
+
+### ------------------------------------------
+### 항공권 발급
+### ------------------------------------------
+
+### 새 항공권 발급
+POST http://localhost:8081/v1/tickets
+Content-Type: application/json
+
+{
+  "reservationId": "RES-001",
+  "flightId": "KE001",
+  "passengerName": "Kim Minsu",
+  "seatNumber": "23A",
+  "seatClass": "ECONOMY",
+  "departureTime": "2024-12-25T10:00:00",
+  "arrivalTime": "2024-12-25T11:10:00"
+}
+
+###
+
+### 항공권 조회
+GET http://localhost:8081/v1/tickets/TKT-001
+Accept: application/json
+
+
+### ------------------------------------------
+### 항공권 취소
+### ------------------------------------------
+
+### 항공권 취소
+POST http://localhost:8081/v1/tickets/TKT-001/cancel
+Content-Type: application/json
+
+{
+  "reason": "Flight cancelled",
+  "refundTicket": true
+}
+
+
+### ------------------------------------------
+### 항공권 검증
+### ------------------------------------------
+
+### 항공권 유효성 검증
+POST http://localhost:8081/v1/tickets/TKT-001/validate
+Content-Type: application/json
+
+{
+  "passengerName": "Kim Minsu",
+  "flightId": "KE001"
+}

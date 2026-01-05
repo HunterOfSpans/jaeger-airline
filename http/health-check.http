@@ -1,0 +1,72 @@
+### ============================================
+### 서비스 헬스 체크
+### ============================================
+
+
+### ------------------------------------------
+### Spring Boot 서비스 헬스 체크
+### ------------------------------------------
+
+### Flight Service (8080)
+GET http://localhost:8080/actuator/health
+Accept: application/json
+
+###
+
+### Ticket Service (8081)
+GET http://localhost:8081/actuator/health
+Accept: application/json
+
+###
+
+### Payment Service (8082)
+GET http://localhost:8082/actuator/health
+Accept: application/json
+
+###
+
+### Reservation Service (8083)
+GET http://localhost:8083/actuator/health
+Accept: application/json
+
+
+### ------------------------------------------
+### 인프라 서비스 헬스 체크
+### ------------------------------------------
+
+### Elasticsearch 클러스터 상태
+GET http://localhost:9200/_cluster/health
+Accept: application/json
+
+###
+
+### Jaeger Query 서비스 목록
+GET http://localhost:16686/api/services
+Accept: application/json
+
+###
+
+### Jaeger 최근 트레이스 조회 (reservation 서비스)
+GET http://localhost:16686/api/traces?service=reservation&limit=10
+Accept: application/json
+
+
+### ------------------------------------------
+### Actuator 엔드포인트
+### ------------------------------------------
+
+### Flight - 전체 Actuator 정보
+GET http://localhost:8080/actuator
+Accept: application/json
+
+###
+
+### Reservation - Circuit Breaker 상태
+GET http://localhost:8083/actuator/circuitbreakers
+Accept: application/json
+
+###
+
+### Reservation - Circuit Breaker 이벤트
+GET http://localhost:8083/actuator/circuitbreakerevents
+Accept: application/json

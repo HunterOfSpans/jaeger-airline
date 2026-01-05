@@ -1,0 +1,67 @@
+### ============================================
+### Reservation Service API (Port 8083)
+### ============================================
+### 예약 오케스트레이션 - Saga 패턴 구현
+### 전체 예약 플로우: Flight -> Payment -> Ticket
+
+
+### ------------------------------------------
+### 예약 생성 (전체 플로우)
+### ------------------------------------------
+
+### 새 예약 생성 - 이코노미
+POST http://localhost:8083/v1/reservations
+Content-Type: application/json
+
+{
+  "flightId": "KE001",
+  "passengerName": "Kim Minsu",
+  "passengerEmail": "minsu@example.com",
+  "seatClass": "ECONOMY",
+  "paymentMethod": "CREDIT_CARD",
+  "cardNumber": "4111111111111111"
+}
+
+###
+
+### 새 예약 생성 - 비즈니스
+POST http://localhost:8083/v1/reservations
+Content-Type: application/json
+
+{
+  "flightId": "OZ456",
+  "passengerName": "Lee Younghee",
+  "passengerEmail": "younghee@example.com",
+  "seatClass": "BUSINESS",
+  "paymentMethod": "CREDIT_CARD",
+  "cardNumber": "5500000000000004"
+}
+
+
+### ------------------------------------------
+### 예약 조회
+### ------------------------------------------
+
+### 예약 상태 조회 (예약 ID로 조회)
+GET http://localhost:8083/v1/reservations/RES-001
+Accept: application/json
+
+###
+
+### 전체 예약 목록 조회
+GET http://localhost:8083/v1/reservations
+Accept: application/json
+
+
+### ------------------------------------------
+### 예약 취소 (보상 트랜잭션)
+### ------------------------------------------
+
+### 예약 취소 요청
+POST http://localhost:8083/v1/reservations/RES-001/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer request",
+  "refundRequired": true
+}
