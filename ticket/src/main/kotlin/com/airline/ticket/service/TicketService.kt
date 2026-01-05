@@ -148,7 +148,7 @@ class TicketService (
     
     /**
      * 랜덤한 좌석 번호를 생성합니다.
-     * 
+     *
      * 1-30열의 A-F 좌석 중 하나를 무작위로 할당합니다.
      * 실제 시스템에서는 예약된 좌석을 제외하고 할당해야 합니다.
      */
@@ -157,10 +157,5 @@ class TicketService (
         val rows = (1..seatConfig.maxRows).random()
         val column = seatConfig.columns.random()
         return "$rows$column"
-    }
-    
-    // 기존 메서드 호환성 유지
-    fun issue(){
-        kafkaTemplate.send("ticket.issued","A ticket issued")
     }
 }

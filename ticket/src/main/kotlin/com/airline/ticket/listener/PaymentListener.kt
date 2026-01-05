@@ -1,7 +1,6 @@
 package com.airline.ticket.listener
 
 import com.airline.tracing.annotation.KafkaOtelTrace
-import com.airline.ticket.service.TicketService
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
@@ -20,7 +19,6 @@ import java.util.UUID
  */
 @Component
 class PaymentListener(
-    private val ticketService: TicketService,
     private val kafkaTemplate: KafkaTemplate<String, String>
 ) {
     private val logger = LoggerFactory.getLogger(PaymentListener::class.java)

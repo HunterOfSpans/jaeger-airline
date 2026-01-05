@@ -145,35 +145,10 @@ public class FlightAggregate {
     }
 
     /**
-     * 가격 변경 - 도메인 비즈니스 로직
-     */
-    public void changePrice(BigDecimal newPrice) {
-        if (newPrice == null || newPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidFlightOperationException("가격은 0보다 커야 합니다");
-        }
-
-        BigDecimal oldPrice = this.priceInfo.getAmount();
-        this.priceInfo = PriceInfo.of(newPrice);
-        this.updatedAt = LocalDateTime.now();
-
-        // Domain Event 발행
-        addDomainEvent(FlightDomainEvent.PriceChanged.of(
-            flightId.getValue(), oldPrice, newPrice
-        ));
-    }
-
-    /**
      * 좌석 가용성 확인
      */
     public boolean isAvailable(int requestedSeats) {
         return seatInventory.canReserve(requestedSeats);
-    }
-
-    /**
-     * 출발 전인지 확인
-     */
-    public boolean isBeforeDeparture() {
-        return schedule.isBeforeDeparture();
     }
 
     /**

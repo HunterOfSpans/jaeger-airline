@@ -208,11 +208,4 @@ class PaymentService (
     private fun publishPaymentApprovedEvent(reservationId: String) {
         kafkaTemplate.send("payment.approved", "Payment approved for reservation: $reservationId")
     }
-    
-
-
-    // 기존 메서드 호환성 유지
-    fun pay() {
-        kafkaTemplate.send("payment.approved","A payment is approved")
-    }
 }

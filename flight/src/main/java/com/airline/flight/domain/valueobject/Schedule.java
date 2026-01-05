@@ -25,12 +25,4 @@ public class Schedule {
 
         return new Schedule(departureTime, arrivalTime);
     }
-
-    public boolean isBeforeDeparture() {
-        return LocalDateTime.now().isBefore(departureTime);
-    }
-
-    public long getFlightDurationMinutes() {
-        return java.time.Duration.between(departureTime, arrivalTime).toMinutes();
-    }
 }

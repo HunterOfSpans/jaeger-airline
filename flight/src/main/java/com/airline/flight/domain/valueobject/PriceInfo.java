@@ -21,18 +21,4 @@ public class PriceInfo {
 
         return new PriceInfo(amount);
     }
-
-    public boolean isMoreExpensiveThan(PriceInfo other) {
-        return this.amount.compareTo(other.amount) > 0;
-    }
-
-    public PriceInfo applyDiscount(BigDecimal discountPercentage) {
-        if (discountPercentage.compareTo(BigDecimal.ZERO) < 0 ||
-            discountPercentage.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new IllegalArgumentException("Discount percentage must be between 0 and 100");
-        }
-
-        BigDecimal discount = amount.multiply(discountPercentage).divide(BigDecimal.valueOf(100));
-        return PriceInfo.of(amount.subtract(discount));
-    }
 }

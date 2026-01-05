@@ -2,7 +2,6 @@ package com.airline.flight.service;
 
 import com.airline.flight.domain.model.FlightAggregate;
 import com.airline.flight.domain.repository.FlightDomainRepository;
-import com.airline.flight.domain.service.FlightDomainService;
 import com.airline.flight.domain.valueobject.FlightId;
 import com.airline.flight.domain.valueobject.Route;
 import com.airline.flight.domain.valueobject.Airport;
@@ -33,9 +32,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class FlightService {
-    
+
     private final FlightDomainRepository flightDomainRepository;
-    private final FlightDomainService flightDomainService;
     private final FlightMapper flightMapper;
     
     /**

@@ -115,11 +115,6 @@ class ReservationService(
         return DomainError.SystemError("서비스 일시 중단. 잠시 후 다시 시도해주세요.", ex).left()
     }
 
-    // 기존 메서드 호환성 유지
-    fun reserve() {
-        println("A reservation is created")
-    }
-
     fun confirm() {
         println("A reservation is confirmed")
     }

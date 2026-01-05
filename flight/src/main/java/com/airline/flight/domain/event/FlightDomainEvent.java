@@ -3,7 +3,6 @@ package com.airline.flight.domain.event;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -90,31 +89,6 @@ public abstract class FlightDomainEvent {
         @Override
         public String getEventType() {
             return "SeatsReleased";
-        }
-    }
-
-    @Value
-    @EqualsAndHashCode(callSuper = false)
-    public static class PriceChanged extends FlightDomainEvent {
-        String eventId;
-        String aggregateId;
-        Instant timestamp;
-        BigDecimal oldPrice;
-        BigDecimal newPrice;
-
-        public static PriceChanged of(String flightId, BigDecimal oldPrice, BigDecimal newPrice) {
-            return new PriceChanged(
-                UUID.randomUUID().toString(),
-                flightId,
-                Instant.now(),
-                oldPrice,
-                newPrice
-            );
-        }
-
-        @Override
-        public String getEventType() {
-            return "PriceChanged";
         }
     }
 }

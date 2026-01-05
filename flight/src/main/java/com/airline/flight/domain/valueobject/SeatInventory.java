@@ -58,20 +58,4 @@ public class SeatInventory {
 
         return new SeatInventory(totalSeats, newAvailableSeats);
     }
-
-    public int getReservedSeats() {
-        return totalSeats - availableSeats;
-    }
-
-    public double getOccupancyRate() {
-        return (double) getReservedSeats() / totalSeats * 100;
-    }
-
-    public boolean isFullyBooked() {
-        return availableSeats == 0;
-    }
-
-    public boolean isEmpty() {
-        return availableSeats == totalSeats;
-    }
 }

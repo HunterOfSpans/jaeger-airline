@@ -20,31 +20,10 @@ import org.springframework.stereotype.Component
  */
 @Component
 class PaymentMapper {
-    
-    /**
-     * PaymentRequest로부터 Payment 엔티티를 생성합니다.
-     * 
-     * @param request   결제 요청 DTO
-     * @param paymentId 생성된 결제 식별자
-     * @return 생성된 Payment 엔티티 (초기 상태는 PENDING)
-     */
-    fun toEntity(request: PaymentRequest, paymentId: String): Payment {
-        return Payment(
-            paymentId = paymentId,
-            status = com.airline.payment.dto.PaymentStatus.PENDING,
-            amount = request.amount,
-            reservationId = request.reservationId,
-            paymentMethod = request.paymentMethod,
-            customerName = request.customerInfo?.name,
-            customerEmail = request.customerInfo?.email,
-            processedAt = java.time.LocalDateTime.now(),
-            message = "Payment initiated"
-        )
-    }
-    
+
     /**
      * Payment 엔티티를 PaymentResponse DTO로 변환합니다.
-     * 
+     *
      * @param payment 변환할 Payment 엔티티
      * @return 변환된 PaymentResponse DTO
      */
@@ -57,16 +36,6 @@ class PaymentMapper {
             processedAt = payment.processedAt,
             message = payment.message
         )
-    }
-    
-    /**
-     * Payment 엔티티 목록을 PaymentResponse DTO 목록으로 변환합니다.
-     * 
-     * @param payments 변환할 Payment 엔티티 목록
-     * @return 변환된 PaymentResponse DTO 목록
-     */
-    fun toResponseList(payments: List<Payment>): List<PaymentResponse> {
-        return payments.map { toResponse(it) }
     }
 
     /**

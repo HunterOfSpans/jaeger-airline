@@ -54,7 +54,7 @@ class ReservationController(
     
     /**
      * 예약을 취소합니다.
-     * 
+     *
      * @param reservationId 취소할 예약 식별자
      * @return 취소된 예약 정보, 실패 시 400 Bad Request
      */
@@ -64,16 +64,5 @@ class ReservationController(
             is Either.Left -> ResponseEntity.badRequest().build()
             is Either.Right -> ResponseEntity.ok(result.value)
         }
-    }
-    
-    /**
-     * 기존 호환성을 위한 간단한 예약 생성 엔드포인트입니다.
-     * 
-     * @return 200 OK 응답
-     */
-    @PostMapping("/simple")
-    fun createSimpleReservation(): ResponseEntity<Void> {
-        reservationService.reserve()
-        return ResponseEntity.ok().build()
     }
 }

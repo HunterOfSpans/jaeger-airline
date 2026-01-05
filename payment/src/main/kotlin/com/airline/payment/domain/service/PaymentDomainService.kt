@@ -43,10 +43,10 @@ class PaymentDomainService {
     fun processExternalPayment(payment: PaymentAggregate): PaymentProcessingResult {
         val amount = PaymentAmount.of(payment.getAmount())
         val paymentMethod = PaymentMethod.of(payment.getPaymentMethod())
-        
+
         val successRate = calculateSuccessRate(amount, paymentMethod)
         val isSuccessful = Random.nextDouble() < successRate
-        
+
         return if (isSuccessful) {
             PaymentProcessingResult.success("결제 승인")
         } else {
@@ -54,38 +54,7 @@ class PaymentDomainService {
             PaymentProcessingResult.failure(failureReason)
         }
     }
-    
-    /**
-     * 결제 위험도 평가
-     */
-    fun assessRisk(payment: PaymentAggregate): PaymentRiskLevel {
-        val amount = PaymentAmount.of(payment.getAmount())
-        
-        return when {
-            amount.isHighAmount() -> PaymentRiskLevel.HIGH
-            amount.isMediumAmount() -> PaymentRiskLevel.MEDIUM
-            else -> PaymentRiskLevel.LOW
-        }
-    }
-    
-    /**
-     * 결제 수수료 계산
-     */
-    fun calculateFee(amount: PaymentAmount, paymentMethod: PaymentMethod): BigDecimal {
-        val baseRate = when {
-            paymentMethod.isCard() -> BigDecimal("0.025")  // 2.5%
-            paymentMethod.isBankTransfer() -> BigDecimal("0.005")  // 0.5%
-            paymentMethod.isDigitalWallet() -> BigDecimal("0.015")  // 1.5%
-            paymentMethod.isCash() -> BigDecimal.ZERO
-            else -> BigDecimal("0.03")  // 3%
-        }
-        
-        val fee = amount.value.multiply(baseRate)
-        
-        // 최소 수수료 1000원, 최대 수수료 50000원
-        return fee.coerceIn(BigDecimal("1000"), BigDecimal("50000"))
-    }
-    
+
     /**
      * 결제 가능 여부 검증
      */
@@ -134,25 +103,16 @@ class PaymentDomainService {
      */
     sealed class PaymentProcessingResult {
         abstract val message: String
-        
+
         data class Success(override val message: String) : PaymentProcessingResult()
         data class Failure(override val message: String) : PaymentProcessingResult()
-        
+
         companion object {
             fun success(message: String) = Success(message)
             fun failure(message: String) = Failure(message)
         }
-        
+
         fun isSuccess(): Boolean = this is Success
         fun isFailure(): Boolean = this is Failure
-    }
-    
-    /**
-     * 결제 위험도 레벨
-     */
-    enum class PaymentRiskLevel {
-        LOW,     // 저위험
-        MEDIUM,  // 중간위험
-        HIGH     // 고위험
     }
 }
