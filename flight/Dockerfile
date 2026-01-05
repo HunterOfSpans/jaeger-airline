@@ -1,6 +1,6 @@
 # Flight Service Dockerfile
-# Java 17 기반의 항공편 관리 서비스
-FROM openjdk:17-jdk-slim
+# Java 21 기반의 항공편 관리 서비스
+FROM eclipse-temurin:21-jre
 
 # Gradle로 빌드된 JAR 파일을 컨테이너로 복사
 COPY /build/libs/*.jar flight.jar

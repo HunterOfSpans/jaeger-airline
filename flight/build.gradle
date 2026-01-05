@@ -10,7 +10,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 dependencyManagement{
@@ -58,7 +58,7 @@ dependencies {
 
 jib {
     from {
-        image = 'openjdk:17-jdk-slim'
+        image = 'openjdk:21-jdk-slim'
     }
     to {
         image = 'flight:latest'

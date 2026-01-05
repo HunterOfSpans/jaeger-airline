@@ -2,7 +2,7 @@
 
 ## 프로젝트 개요
 - **이름**: Jaeger 항공 예약 시스템 (MSA 분산 추적 테스트베드)
-- **언어**: Java 17+ (Flight Service), Kotlin (Payment, Ticket, Reservation Services)  
+- **언어**: Java 21 (Flight Service), Kotlin (Payment, Ticket, Reservation Services)  
 - **프레임워크**: Spring Boot 3.3.5, Spring Cloud 2023.0.3
 - **빌드 도구**: Gradle
 - **아키텍처**: 마이크로서비스 아키텍처 (MSA)
