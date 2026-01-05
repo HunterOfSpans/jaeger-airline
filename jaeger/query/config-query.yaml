@@ -7,9 +7,9 @@ service:
       exporters: [nop]
   telemetry:
     resource:
-      service.name: jaeger-collector
+      service.name: jaeger-query
     logs:
-      level: debug
+      level: info
 
 extensions:
   healthcheckv2:

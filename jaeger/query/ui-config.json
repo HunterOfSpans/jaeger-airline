@@ -1,3 +1,18 @@
 {
-  "archiveEnabled": true
+  "archiveEnabled": true,
+  "monitor": {
+    "menuEnabled": true
+  },
+  "linkPatterns": [],
+  "menu": [
+    {
+      "label": "Documentation",
+      "items": [
+        {
+          "label": "Jaeger Docs",
+          "url": "https://www.jaegertracing.io/docs/"
+        }
+      ]
+    }
+  ]
 }
