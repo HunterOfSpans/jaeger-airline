@@ -21,7 +21,7 @@
 
 ## 개요
 
-이 문서는 Jaeger 2.10.0 환경에서 Spring Boot 3.x와 OpenFeign이 어떻게 자동으로 분산 추적을 수행하는지에 대한 상세한 기술적 분석을 제공합니다. OpenFeign의 트레이스 헤더 자동 삽입/추출 메커니즘과 OpenTelemetry와의 통합 방식을 심층적으로 다룹니다.
+이 문서는 Jaeger 2.14.1 환경에서 Spring Boot 3.x와 OpenFeign이 어떻게 자동으로 분산 추적을 수행하는지에 대한 상세한 기술적 분석을 제공합니다. OpenFeign의 트레이스 헤더 자동 삽입/추출 메커니즘과 OpenTelemetry와의 통합 방식을 심층적으로 다룹니다.
 
 ## 핵심 아키텍처
 

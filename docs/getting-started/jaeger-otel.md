@@ -1,6 +1,6 @@
 # Spring Boot 3 + OpenTelemetry + Jaeger v2 개발 가이드
 
-> **작성일**: 2026-01-05 | **버전**: Jaeger 2.10.0, Spring Boot 3.3.5, OpenTelemetry 2.11.0, Java 21 | **난이도**: 입문
+> **작성일**: 2026-01-06 | **버전**: Jaeger 2.14.1, Spring Boot 3.3.5, OpenTelemetry 2.11.0, Java 21 | **난이도**: 입문
 
 ---
 
@@ -196,7 +196,7 @@ docker run -d --name jaeger \
   -p 16686:16686 \
   -p 4317:4317 \
   -p 4318:4318 \
-  jaegertracing/jaeger:2.10.0
+  jaegertracing/jaeger:2.14.1
 ```
 
 **포트 설명**:
@@ -209,7 +209,7 @@ docker run -d --name jaeger \
 ```yaml
 services:
   jaeger:
-    image: jaegertracing/jaeger:2.10.0
+    image: jaegertracing/jaeger:2.14.1
     ports:
       - "16686:16686"
       - "4317:4317"
@@ -425,4 +425,4 @@ curl -X POST http://localhost:4318/v1/traces \
 | 컴포넌트 | 버전 | EOL |
 |---------|------|-----|
 | Jaeger v1 | 1.x | 2025-12-31 (지원 종료 예정) |
-| Jaeger v2 | 2.10.0+ | - (현재 권장) |
+| Jaeger v2 | 2.14.1 | - (현재 권장) |

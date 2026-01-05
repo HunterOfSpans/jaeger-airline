@@ -112,7 +112,7 @@ docs/
 | 구성 요소 | 버전 |
 |-----------|------|
 | Java | 21 |
-| Jaeger | 2.10.0 |
+| Jaeger | 2.14.1 |
 | Spring Boot | 3.3.5 |
 | OpenTelemetry | 2.11.0 |
 | Elasticsearch | 8.13.0 |
