@@ -11,7 +11,8 @@ docs/
 ├── README.md                 # 이 파일 (문서 인덱스)
 ├── glossary.md               # 용어집
 ├── getting-started/          # 시작하기
-│   └── jaeger-otel.md        # Spring Boot + OTel + Jaeger 가이드
+│   ├── apply-to-your-project.md  # 내 프로젝트에 적용하기 (실습)
+│   └── jaeger-otel.md            # Spring Boot + OTel + Jaeger 개념
 ├── architecture/             # 아키텍처 설계
 │   ├── otel-sdk-implementation.md  # OTel SDK 구현 가이드
 │   ├── library-sharing-guide.md    # 공통 라이브러리 공유 가이드
@@ -31,8 +32,9 @@ docs/
 
 ## 빠른 시작
 
-1. **처음 시작하는 경우**: [Spring Boot + OTel + Jaeger 가이드](getting-started/jaeger-otel.md)
-2. **용어가 헷갈리는 경우**: [용어집](glossary.md)
+1. **내 프로젝트에 적용하려면**: [내 프로젝트에 적용하기](getting-started/apply-to-your-project.md) - 단계별 실습 가이드
+2. **개념부터 이해하려면**: [Spring Boot + OTel + Jaeger 가이드](getting-started/jaeger-otel.md) - 이론 및 개념
+3. **용어가 헷갈리는 경우**: [용어집](glossary.md)
 
 ---
 
@@ -42,7 +44,8 @@ docs/
 
 | 문서 | 설명 | 난이도 |
 |------|------|--------|
-| [jaeger-otel.md](getting-started/jaeger-otel.md) | Spring Boot 3 + OTel + Jaeger v2 통합 가이드 | 입문 |
+| [apply-to-your-project.md](getting-started/apply-to-your-project.md) | **내 프로젝트에 Jaeger + OTel 적용하기** (실습) | 입문 |
+| [jaeger-otel.md](getting-started/jaeger-otel.md) | Spring Boot 3 + OTel + Jaeger v2 개념 가이드 | 입문 |
 
 ### 아키텍처 (Architecture)
 

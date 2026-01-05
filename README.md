@@ -1,406 +1,356 @@
-# Jaeger 항공 예약 시스템 | MSA 분산 추적 테스트베드
+# Jaeger Airline
 
-이 프로젝트는 **Jaeger**를 활용한 분산 추적 검증 시스템으로, 완전한 마이크로서비스 아키텍처(MSA)에서 분산 추적 기능을 시연하고 검증하기 위해 설계되었습니다.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-21-red.svg)](https://openjdk.org/projects/jdk/21/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9-purple.svg)](https://kotlinlang.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-green.svg)](https://spring.io/projects/spring-boot)
+[![Jaeger](https://img.shields.io/badge/Jaeger-2.14.1-blue.svg)](https://www.jaegertracing.io/)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-2.11.0-blueviolet.svg)](https://opentelemetry.io/)
 
-## 🏗️ 아키텍처 개요
+**MSA 환경에서 분산 추적을 학습하고 검증하기 위한 항공 예약 시스템 테스트베드**
 
-### 마이크로서비스 구성
-- **Flight Service** (Java/Spring Boot) - 항공편 정보 및 좌석 관리 
-- **Payment Service** (Kotlin/Spring Boot) - 결제 처리 및 검증
-- **Ticket Service** (Kotlin/Spring Boot) - 항공권 발급 및 관리
-- **Reservation Service** (Kotlin/Spring Boot) - 예약 오케스트레이션 및 Saga 패턴 구현
+[English](README_EN.md) | 한국어
 
-### 핵심 기술 스택
-- **Backend**: Java 17+, Kotlin, Spring Boot 3.3.5, Spring Cloud 2023.0.3
-- **Service Communication**: OpenFeign (동기), Kafka (비동기)
-- **Resilience Patterns**: Resilience4j (Circuit Breaker, Retry, Timeout)
-- **Distributed Tracing**: Jaeger + OpenTelemetry
-- **Messaging**: Apache Kafka Cluster (3-node)
-- **Containerization**: Docker & Docker Compose
-- **Build**: Gradle
+---
 
-## 🚀 빠른 시작
+## 프로젝트 소개
+
+Jaeger Airline은 마이크로서비스 아키텍처(MSA)에서 **분산 추적(Distributed Tracing)** 을 실습하고 학습하기 위해 설계된 교육용 프로젝트입니다.
+
+실제 항공 예약 시스템을 모방한 4개의 마이크로서비스가 상호작용하며, **OpenTelemetry**와 **Jaeger**를 통해 전체 요청 흐름을 추적할 수 있습니다. 동기 통신(OpenFeign)과 비동기 통신(Kafka) 모두에서 분산 추적이 어떻게 동작하는지 확인할 수 있습니다.
+
+### 주요 특징
+
+- **완전한 MSA 구현**: 4개의 독립적인 마이크로서비스 (Flight, Payment, Ticket, Reservation)
+- **동기/비동기 분산 추적**: OpenFeign 자동 계측 + Kafka 수동 계측 비교 학습
+- **장애 복원력 패턴**: Circuit Breaker, Retry, Timeout (Resilience4j)
+- **보상 트랜잭션**: Saga 패턴 기반 롤백 처리
+- **공통 라이브러리**: Gradle Composite Build로 Kafka 추적 라이브러리 공유
+- **One-Click 실행**: Docker Compose로 전체 인프라 즉시 구동
+
+---
+
+## 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client Request                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Reservation Service (8083)                           │
+│                    [Kotlin] Orchestration + Saga Pattern                     │
+│                         Circuit Breaker (Resilience4j)                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+            │                         │                         │
+            │ OpenFeign               │ Kafka                   │ OpenFeign
+            ▼                         ▼                         ▼
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────────────┐
+│  Flight Service   │    │  Kafka Cluster    │    │     Payment Service       │
+│      (8080)       │    │    (3 Brokers)    │    │         (8082)            │
+│      [Java]       │    │                   │    │        [Kotlin]           │
+│ Seat Management   │    │  reservation.*    │    │   Payment Processing      │
+└───────────────────┘    │  payment.*        │    └───────────────────────────┘
+                         │  ticket.*         │                  │
+                         └───────────────────┘                  │ Kafka
+                                   │                            ▼
+                                   │              ┌───────────────────────────┐
+                                   │              │     Ticket Service        │
+                                   └──────────────│         (8081)            │
+                                                  │        [Kotlin]           │
+                                                  │    Ticket Issuance        │
+                                                  └───────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Observability Stack                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Jaeger UI  │  │  Collector  │  │Elasticsearch│  │      Kafka UI       │ │
+│  │   :16686    │  │   :4318     │  │   :9200     │  │       :8085         │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 서비스 구성
+
+| 서비스 | 포트 | 언어 | 역할 |
+|--------|------|------|------|
+| **Flight Service** | 8080 | Java | 항공편 조회, 좌석 예약/해제 |
+| **Ticket Service** | 8081 | Kotlin | 항공권 발급/취소 |
+| **Payment Service** | 8082 | Kotlin | 결제 처리/취소 |
+| **Reservation Service** | 8083 | Kotlin | 예약 오케스트레이션, Saga 패턴 |
+
+### 기술 스택
+
+| 분류 | 기술 | 버전 |
+|------|------|------|
+| **Runtime** | Java | 21 |
+| **Language** | Kotlin | 1.9.x |
+| **Framework** | Spring Boot | 3.3.5 |
+| **Cloud** | Spring Cloud | 2023.0.3 |
+| **Tracing** | Jaeger | 2.14.1 |
+| **Telemetry** | OpenTelemetry | 2.11.0 |
+| **Messaging** | Apache Kafka | 3.x |
+| **Storage** | Elasticsearch | 8.13.0 |
+| **Build** | Gradle | 8.x |
+
+---
+
+## 빠른 시작
 
 ### 사전 요구사항
-- Docker & Docker Compose
-- Java 17+
-- Gradle 7+
 
-### 1. 환경 설정
+- Docker & Docker Compose v2+
+- Java 21+
+- 최소 8GB RAM (권장: 16GB)
+
+### 1. 저장소 클론
+
 ```bash
 git clone https://github.com/HunterOfSpans/jaeger-airline.git
 cd jaeger-airline
 ```
 
-### 2. 모든 서비스 시작
-```bash
-# 기본 빌드 및 실행 (권장)
-./script/build-and-run.sh
+### 2. 전체 시스템 빌드 및 실행
 
-# 또는 완전 재빌드 및 재시작 (Docker 이미지까지 재생성)
-./script/rebuild-and-restart.sh
+```bash
+# 모든 서비스 빌드 및 Docker 컨테이너 실행
+./script/build-and-run.sh
 ```
 
-### 3. 분산 추적 테스트
-```bash
-# 기본 예약 플로우 테스트
-./script/request.sh
+### 3. 서비스 상태 확인
 
-# OpenFeign 동기 호출 분산 추적 테스트
+```bash
+# 모든 서비스 헬스 체크
+for port in 8080 8081 8082 8083; do
+  echo "localhost:$port - $(curl -s http://localhost:$port/actuator/health | jq -r '.status')"
+done
+```
+
+### 4. 분산 추적 테스트
+
+```bash
+# OpenFeign 동기 호출 추적 테스트
 ./script/test-feign-tracing.sh
 
-# Kafka 비동기 메시징 분산 추적 테스트
+# Kafka 비동기 메시징 추적 테스트
 ./script/test-kafka-tracing.sh
-
-# 전체 API 엔드포인트 테스트
-./script/test-api.sh
 ```
 
-### 4. 서비스 접근 포인트
-| 서비스 | 포트 | 접속 URL | Health Check |
-|--------|------|----------|-------------|
-| Flight Service | 8080 | http://localhost:8080 | http://localhost:8080/actuator/health |
-| Ticket Service | 8081 | http://localhost:8081 | http://localhost:8081/actuator/health |
-| Payment Service | 8082 | http://localhost:8082 | http://localhost:8082/actuator/health |
-| Reservation Service | 8083 | http://localhost:8083 | http://localhost:8083/actuator/health |
-| **Jaeger UI** | **16686** | **http://localhost:16686** | **분산 추적 시각화** |
-| **Kafka UI** | **8085** | **http://localhost:8085** | **메시징 모니터링** |
-| Kibana | 5601 | http://localhost:5601 | 로그 분석 |
+### 5. Jaeger UI에서 추적 확인
 
-## 🔄 MSA 패턴 구현
+1. http://localhost:16686 접속
+2. Service: `reservation-service` 선택
+3. **Find Traces** 클릭
+4. 트레이스 선택하여 전체 호출 흐름 확인
 
-### 1. OpenFeign 기반 서비스 간 통신
-```kotlin
-@FeignClient(name = "payment-service", url = "\${services.payment.url}")
-interface PaymentClient {
-    @PostMapping("/v1/payments")
-    fun processPayment(@RequestBody request: PaymentRequest): PaymentResponse
-}
-```
+---
 
-### 2. Circuit Breaker 패턴 (Resilience4j)
-```kotlin
-@CircuitBreaker(name = "reservation", fallbackMethod = "createReservationFallback")
-fun createReservation(request: ReservationRequest): ReservationResponse {
-    // 서비스 오케스트레이션 로직
-}
-```
+## API 엔드포인트
 
-### 3. Saga 패턴 (보상 트랜잭션)
-```kotlin
-private fun executeCompensation(reservationId: String, flightId: String) {
-    logger.info("Executing compensation for reservation: {}", reservationId)
-    // 1. 티켓 취소
-    // 2. 결제 취소  
-    // 3. 좌석 해제
-}
-```
+### Reservation Service (8083) - 오케스트레이션
 
-## 📋 REST API 엔드포인트
-
-### Flight Service
 ```http
-GET  /v1/flights?from={출발지}&to={도착지}&date={날짜}  # 항공편 검색
-GET  /v1/flights/{flightId}                            # 항공편 상세 조회
-POST /v1/flights/{flightId}/availability               # 좌석 가용성 확인
-POST /v1/flights/{flightId}/reserve                    # 좌석 예약
-POST /v1/flights/{flightId}/release                    # 좌석 해제
+POST /v1/reservations                    # 예약 생성
+GET  /v1/reservations/{id}               # 예약 조회
+POST /v1/reservations/{id}/cancel        # 예약 취소
 ```
 
-### Reservation Service (오케스트레이션)
+### 분산 추적 테스트 엔드포인트
+
 ```http
-POST /v1/reservations                    # 완전한 예약 플로우 실행
-GET  /v1/reservations/{reservationId}    # 예약 상태 조회
-POST /v1/reservations/{reservationId}/cancel  # 예약 취소
+# OpenFeign 동기 추적
+POST /v1/tracing/feign/simple-flow       # 간단한 호출 체인
+POST /v1/tracing/feign/complex-flow      # 복잡한 예약 프로세스
+POST /v1/tracing/feign/parallel-calls    # 병렬 호출
+
+# Kafka 비동기 추적
+POST /v1/tracing/kafka/simple-events     # 간단한 이벤트 체인
+POST /v1/tracing/kafka/complex-events    # 복잡한 이벤트 플로우
+POST /v1/tracing/kafka/failure-compensation  # 실패/보상 트랜잭션
 ```
 
-### Payment Service
+### Flight Service (8080)
+
+```http
+GET  /v1/flights                         # 항공편 검색
+GET  /v1/flights/{flightId}              # 항공편 상세
+POST /v1/flights/{flightId}/availability # 좌석 확인
+POST /v1/flights/{flightId}/reserve      # 좌석 예약
+POST /v1/flights/{flightId}/release      # 좌석 해제
+```
+
+### Payment Service (8082)
+
 ```http
 POST /v1/payments                        # 결제 처리
 GET  /v1/payments/{paymentId}            # 결제 조회
 POST /v1/payments/{paymentId}/cancel     # 결제 취소
 ```
 
-### Ticket Service
+### Ticket Service (8081)
+
 ```http
 POST /v1/tickets                         # 항공권 발급
 GET  /v1/tickets/{ticketId}              # 항공권 조회
 POST /v1/tickets/{ticketId}/cancel       # 항공권 취소
 ```
 
-## 🎯 완전한 예약 플로우 테스트
+---
 
-### 1. 성공 시나리오
-```bash
-curl -X POST http://localhost:8083/v1/reservations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "flightId": "OZ456",
-    "passengerInfo": {
-      "name": "김승객",
-      "email": "passenger@example.com", 
-      "phone": "010-1234-5678"
-    },
-    "seatPreference": "window",
-    "paymentMethod": "CARD"
-  }'
+## 분산 추적
+
+이 프로젝트는 두 가지 방식의 분산 추적을 구현합니다:
+
+### 1. OpenFeign 자동 추적
+
+OpenFeign + Micrometer Tracing을 통해 **자동으로** trace context가 전파됩니다.
+
+```kotlin
+@FeignClient(name = "flight-service")
+interface FlightClient {
+    @PostMapping("/v1/flights/{flightId}/reserve")
+    fun reserveSeat(@PathVariable flightId: String): SeatResponse
+}
+// HTTP 헤더(traceparent, tracestate)가 자동 전파됨
 ```
 
-**예상 응답:**
-```json
-{
-  "reservationId": "RES-12345678",
-  "status": "CONFIRMED",
-  "flightId": "OZ456",
-  "paymentId": "PAY-87654321",
-  "ticketId": "TKT-11223344",
-  "totalAmount": 850000,
-  "seatNumber": "12A",
-  "message": "Reservation completed successfully"
+### 2. Kafka 수동 추적
+
+Kafka 메시징은 `@KafkaOtelTrace` 어노테이션과 AOP로 **수동 계측**합니다.
+
+```kotlin
+@KafkaOtelTrace(spanName = "process-payment-event")
+@KafkaListener(topics = ["reservation.requested"])
+fun handleReservation(message: String, @Headers headers: MessageHeaders) {
+    // AOP가 Kafka 헤더에서 trace context 추출
+    // 새로운 span이 기존 trace에 연결됨
 }
 ```
 
-## 🔍 Jaeger 분산 추적 검증
+### Kafka 이벤트 체인
 
-### 1. 추적 데이터 확인
-1. **Jaeger UI 접속**: http://localhost:16686
-2. **Service 선택**: `reservation-service`
-3. **Operation 선택**: `POST /v1/reservations`
-4. **Find Traces** 클릭
-
-### 2. 확인 가능한 추적 정보
-- **전체 요청 플로우**: Reservation → Flight → Payment → Ticket
-- **각 서비스 응답 시간**: 개별 서비스별 성능 분석
-- **에러 추적**: 실패 지점 및 스택 트레이스
-- **서비스 의존성 맵**: 서비스 간 호출 관계 시각화
-
-### 3. 성능 메트릭 분석
-- **Total Duration**: 전체 예약 처리 시간
-- **Service Time**: 각 서비스별 처리 시간
-- **Network Latency**: 서비스 간 네트워크 지연
-- **Database Operations**: 데이터 처리 시간
-
-## 🛡️ 장애 복원력 패턴 검증
-
-### 1. Circuit Breaker 테스트
-```bash
-# Payment 서비스 중지 후 예약 시도
-# 자동으로 Circuit Breaker가 동작하여 빠른 실패 처리
-curl -s http://localhost:8083/actuator/circuitbreakers | jq .
+```
+reservation.requested → seat.reserved → payment.approved → ticket.issued → reservation.completed
 ```
 
-### 2. 보상 트랜잭션 테스트
-```bash
-# 결제 실패 시나리오에서 자동 롤백 확인
-# 1. 좌석 해제
-# 2. 이미 발급된 티켓 취소 
-# 3. 데이터 일관성 유지
-```
+자세한 내용은 [분산 추적 동작 원리](docs/guides/distributed-tracing-overview.md) 문서를 참고하세요.
 
-### 3. Kafka 메시징 검증
-```bash
-# 각 서비스별 이벤트 발송 확인
-# - reservation.created (예약 완료)
-# - payment.approved (결제 승인)
-# - ticket.issued (항공권 발급)
-```
+---
 
-## 📊 모니터링 및 관리
-
-### Circuit Breaker 상태 모니터링
-```bash
-curl http://localhost:8083/actuator/circuitbreakers
-```
-
-### 서비스 헬스 체크
-```bash
-curl http://localhost:8083/actuator/health
-```
-
-### Kafka 컨슈머 상태 확인
-- Kafka UI: http://localhost:8085
-- Topics: `reservation.created`, `payment.approved`, `ticket.issued`
-
-## 🧪 분산 추적 테스트 시나리오
-
-### 1. 통합 테스트 스크립트
-
-#### `./script/test-feign-tracing.sh` - OpenFeign 동기 호출 추적
-```bash
-# 실행 후 Jaeger UI에서 확인 가능한 추적:
-# - 간단한 동기 호출 체인
-# - 복잡한 예약 프로세스 (Circuit Breaker 포함)
-# - Circuit Breaker 동작 테스트
-# - 병렬 호출 테스트
-```
-
-#### `./script/test-kafka-tracing.sh` - Kafka 비동기 메시징 추적
-```bash
-# 실행 후 확인 가능한 추적:
-# - 간단한 이벤트 체인 (reservation → payment → ticket)
-# - 복잡한 이벤트 플로우
-# - 실패 및 보상 트랜잭션
-# - 다중 토픽 이벤트 처리
-```
-
-#### `./script/test-api.sh` - 전체 API 엔드포인트 테스트
-```bash
-# 모든 서비스의 API 엔드포인트 검증:
-# - 각 서비스별 헬스 체크
-# - CRUD 작업 테스트
-# - 에러 핸들링 검증
-```
-
-### 2. 실시간 분산 추적 확인 방법
-
-1. **테스트 실행**:
-   ```bash
-   ./script/test-feign-tracing.sh  # 또는 다른 테스트 스크립트
-   ```
-
-2. **Jaeger UI 접속**: http://localhost:16686
-
-3. **추적 검색**:
-   - Service: `reservation-service` 선택
-   - Operation: 원하는 작업 선택 (예: `POST /v1/tracing/feign/complex-flow`)
-   - Find Traces 클릭
-
-4. **분석 가능한 정보**:
-   - 🕒 **Timeline View**: 서비스 간 호출 순서와 시간
-   - 📊 **Span Details**: 각 단계별 상세 정보
-   - ❗ **Error Tracking**: 실패 지점과 스택 트레이스
-   - 🔗 **Service Map**: 서비스 의존성 관계
-
-### 3. 장애 복원력 패턴 검증
-
-#### Circuit Breaker 동작 확인
-```bash
-# Circuit Breaker 상태 모니터링
-curl -s http://localhost:8083/actuator/circuitbreakers | jq .
-
-# 실행 후 Jaeger에서 확인:
-# - CLOSED → OPEN 상태 전환
-# - Fallback 메소드 실행 추적
-# - 자동 복구 (HALF_OPEN) 과정
-```
-
-#### Kafka 이벤트 체인 검증
-```bash
-# Kafka UI에서 메시지 확인: http://localhost:8085
-# Topics:
-# - reservation.requested  (예약 요청)
-# - seat.reserved         (좌석 예약 완료)
-# - payment.approved      (결제 승인)
-# - ticket.issued         (항공권 발급)
-```
-
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 jaeger-airline/
-├── flight/                     # Flight Service (Java 17)
-│   ├── src/main/java/
-│   │   ├── controller/         # REST API 컨트롤러
-│   │   ├── service/           # 비즈니스 로직
-│   │   ├── aspect/            # 분산 추적 AOP
-│   │   ├── listener/          # Kafka 리스너
-│   │   └── dto/               # 데이터 전송 객체
-│   └── src/main/resources/
-├── payment/                    # Payment Service (Kotlin)
-│   ├── src/main/kotlin/
-│   │   ├── controller/        # REST API 컨트롤러
-│   │   ├── service/          # 결제 비즈니스 로직
-│   │   ├── aspect/           # Kafka 분산 추적 AOP
-│   │   ├── listener/         # Kafka 이벤트 리스너
-│   │   └── config/           # 설정 (Kafka, OpenTelemetry)
-├── ticket/                     # Ticket Service (Kotlin)
-│   ├── src/main/kotlin/
-│   │   ├── controller/       # 항공권 API
-│   │   ├── service/          # 항공권 발급 로직
-│   │   ├── aspect/           # 분산 추적 AOP
-│   │   ├── listener/         # Kafka 리스너
-│   │   └── annotation/       # @KafkaOtelTrace 커스텀 어노테이션
-├── reservation/                # Reservation Service (Kotlin)
-│   ├── src/main/kotlin/
-│   │   ├── controller/       # Reservation API + 분산 추적 테스트 API
-│   │   ├── service/          # 오케스트레이션 + Kafka 이벤트 발행
-│   │   ├── client/           # OpenFeign 클라이언트
-│   │   ├── aspect/           # 분산 추적 AOP
-│   │   ├── listener/         # Kafka 리스너
-│   │   └── config/           # Circuit Breaker + OpenTelemetry 설정
-│   └── src/main/resources/
-│       └── application-circuit.yml # Circuit Breaker 상세 설정
-├── common/                     # 공통 라이브러리
-│   └── kafka-tracing/          # Kafka 분산 추적 라이브러리
-│       ├── annotation/         # @KafkaOtelTrace 어노테이션
-│       ├── aspect/             # AOP 기반 추적 처리
+├── common/
+│   └── kafka-tracing/          # 공통 Kafka 추적 라이브러리
+│       ├── annotation/         # @KafkaOtelTrace
+│       ├── aspect/             # KafkaTracingAspect (AOP)
 │       └── config/             # Spring Boot 자동 구성
-├── script/                     # 실행 및 테스트 스크립트
-│   ├── build-and-run.sh        # 기본 빌드 및 실행
-│   ├── rebuild-and-restart.sh  # 완전 재빌드 및 재시작
-│   ├── request.sh              # 기본 예약 플로우 테스트
-│   ├── test-api.sh             # 전체 API 엔드포인트 테스트
-│   ├── test-feign-tracing.sh   # OpenFeign 분산 추적 테스트
-│   └── test-kafka-tracing.sh   # Kafka 분산 추적 테스트
+├── flight/                     # Flight Service (Java)
+├── payment/                    # Payment Service (Kotlin)
+├── ticket/                     # Ticket Service (Kotlin)
+├── reservation/                # Reservation Service (Kotlin)
+├── jaeger/
+│   ├── collector/              # Jaeger Collector 설정
+│   └── query/                  # Jaeger Query 설정
 ├── docs/                       # 기술 문서
-│   ├── architecture/           # 아키텍처 설계 문서
-│   ├── explain/                # 개념 설명 문서
-│   └── troubleshooting/        # 문제 해결 가이드
-├── docker-compose-kafka.yml    # Kafka 3-node 클러스터
-├── docker-compose.yml          # Jaeger + Elasticsearch + Kibana
-└── README.md                   # 이 파일
+│   ├── getting-started/        # 시작하기 가이드
+│   ├── architecture/           # 아키텍처 설계
+│   ├── guides/                 # 실습 가이드
+│   ├── reference/              # 기술 참조
+│   └── troubleshooting/        # 문제 해결
+├── script/                     # 빌드/테스트 스크립트
+├── docker-compose.yml          # Jaeger + Elasticsearch
+└── docker-compose-kafka.yml    # Kafka 클러스터
 ```
 
-## 📚 분산 추적 심화 학습
+---
 
-### 구현된 분산 추적 패턴
+## 문서
 
-1. **OpenFeign 자동 추적**:
-   - `feign-micrometer` 의존성으로 완전 자동화
-   - W3C Trace Context 표준 준수
-   - HTTP 헤더 자동 전파 (`traceparent`, `tracestate`)
-   - 👉 자세한 내용: [OpenFeign-Distributed-Tracing-Guide.md](docs/guides/OpenFeign-Distributed-Tracing-Guide.md)
+| 문서 | 설명 |
+|------|------|
+| [내 프로젝트에 적용하기](docs/getting-started/apply-to-your-project.md) | **단계별 적용 가이드** (복사해서 사용) |
+| [개념 가이드](docs/getting-started/jaeger-otel.md) | Spring Boot + OTel + Jaeger 이론 |
+| [분산 추적 동작 원리](docs/guides/distributed-tracing-overview.md) | 전체 추적 동작 원리 설명 |
+| [OpenFeign 추적 가이드](docs/guides/OpenFeign-Distributed-Tracing-Guide.md) | 동기 통신 추적 구현 |
+| [Kafka 추적 가이드](docs/guides/Kafka-Distributed-Tracing-Complete-Guide.md) | 비동기 메시징 추적 구현 |
+| [라이브러리 공유 가이드](docs/architecture/library-sharing-guide.md) | Gradle Composite Build |
+| [ES 매핑 충돌 해결](docs/troubleshooting/elasticsearch-mapping-conflict.md) | 트러블슈팅 |
 
-2. **Kafka 수동 추적**:
-   - `@KafkaOtelTrace` 커스텀 어노테이션
-   - AOP 기반 trace context 추출/전파
-   - MessageHeaders 우선 + ConsumerRecord 호환성 지원
-   - 👉 자세한 내용: [Kafka-Distributed-Tracing-Complete-Guide.md](docs/guides/Kafka-Distributed-Tracing-Complete-Guide.md)
+전체 문서 목록은 [docs/README.md](docs/README.md)를 참고하세요.
 
-3. **Jaeger CQRS 아키텍처**:
-   - Collector (Write Side) / Query (Read Side) 분리
-   - Elasticsearch 기반 강력한 검색 능력
-   - 독립적 스케일링 및 성능 최적화
-   - 👉 자세한 내용: [Jaeger-CQRS-Architecture-Guide.md](docs/architecture/Jaeger-CQRS-Architecture-Guide.md)
+---
 
-### 🎓 학습 목표
+## 모니터링 UI
+
+| 서비스 | URL | 용도 |
+|--------|-----|------|
+| **Jaeger UI** | http://localhost:16686 | 분산 추적 시각화 |
+| **Kafka UI** | http://localhost:8085 | 메시지 큐 모니터링 |
+| **Kibana** | http://localhost:5601 | 로그 분석 |
+
+---
+
+## 학습 목표
 
 이 프로젝트를 통해 다음을 학습할 수 있습니다:
 
-1. **분산 추적 시스템** - Jaeger + OpenTelemetry
-2. **자동 vs 수동 계측** - OpenFeign 자동, Kafka 수동 구현 비교
-3. **마이크로서비스 통신** - 동기/비동기 패턴별 추적 전략
-4. **장애 복원력 패턴** - Circuit Breaker, Saga Pattern
-5. **서비스 오케스트레이션** - 복잡한 비즈니스 플로우 관리
-6. **관찰 가능성(Observability)** - 분산 시스템 디버깅 및 모니터링
-7. **CQRS 패턴** - Read/Write 분리 아키텍처
+1. **분산 추적 시스템** - OpenTelemetry SDK + Jaeger 백엔드 구성
+2. **자동 vs 수동 계측** - OpenFeign 자동 추적, Kafka 수동 추적 비교
+3. **MSA 통신 패턴** - 동기(REST) / 비동기(메시징) 패턴
+4. **장애 복원력** - Circuit Breaker, Retry, Timeout 패턴
+5. **보상 트랜잭션** - Saga 패턴으로 분산 트랜잭션 일관성 유지
+6. **관찰 가능성** - 분산 시스템 디버깅 및 성능 분석
 
-## 🛠️ 확장 가능한 아키텍처
+---
 
-### 현재 구현된 패턴
-- ✅ **분산 추적** (OpenTelemetry + Jaeger)
-- ✅ **Circuit Breaker** (Resilience4j)
-- ✅ **Saga Pattern** (보상 트랜잭션)
-- ✅ **Event-Driven Architecture** (Kafka)
-- ✅ **CQRS-like Pattern** (Jaeger Collector/Query)
+## 스크립트
 
-### 향후 확장 아이디어
-- [ ] **Distributed Caching** (Redis)
-- [ ] **API Gateway** (Spring Cloud Gateway)
-- [ ] **Service Mesh** (Istio)
-- [ ] **Event Sourcing** 패턴
-- [ ] **Full CQRS** 패턴 (읽기/쓰기 DB 분리)
+```bash
+./script/build-and-run.sh        # 빌드 및 실행
+./script/rebuild-and-restart.sh  # Docker 이미지 재빌드 포함
+./script/request.sh              # 기본 예약 플로우 테스트
+./script/test-api.sh             # 전체 API 테스트
+./script/test-feign-tracing.sh   # OpenFeign 추적 테스트
+./script/test-kafka-tracing.sh   # Kafka 추적 테스트
+```
 
-## 📄 라이선스
+---
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
+## 기여하기
+
+이슈와 Pull Request를 환영합니다!
+
+1. 이 저장소를 Fork 합니다
+2. 새로운 브랜치를 생성합니다 (`git checkout -b feature/amazing-feature`)
+3. 변경사항을 커밋합니다 (`git commit -m 'Add amazing feature'`)
+4. 브랜치에 Push 합니다 (`git push origin feature/amazing-feature`)
+5. Pull Request를 생성합니다
+
+### 개발 환경 설정
+
+```bash
+# 인프라만 실행 (로컬 개발 시)
+docker compose -f docker-compose-kafka.yml -f docker-compose.yml up -d elasticsearch kafka1 kafka2 kafka3 jaeger-collector jaeger-query
+
+# 특정 서비스만 로컬 실행
+cd reservation && ./gradlew bootRun
+```
+
+---
+
+## 라이선스
+
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참고하세요.
+
+---
+
+## 감사의 말
+
+- [Jaeger](https://www.jaegertracing.io/) - 분산 추적 백엔드
+- [OpenTelemetry](https://opentelemetry.io/) - 관찰 가능성 프레임워크
+- [Spring Boot](https://spring.io/projects/spring-boot) - 애플리케이션 프레임워크
+- [Resilience4j](https://resilience4j.readme.io/) - 장애 복원력 라이브러리
