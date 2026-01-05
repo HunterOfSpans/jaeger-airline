@@ -146,7 +146,7 @@ class ReservationApplication
 dependencies {
     // OpenFeign
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
-    
+
     // Micrometer + OpenTelemetry 통합
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.github.openfeign:feign-micrometer:13.6")  // ← 핵심
@@ -155,15 +155,168 @@ dependencies {
 ```
 
 #### OpenFeign 클라이언트 구현
+
+실제 프로젝트에서 구현된 3개의 Feign Client입니다:
+
+**1. FlightClient - 항공편 서비스**
 ```kotlin
+// reservation/client/FlightClient.kt
 @FeignClient(name = "flight-service", url = "\${services.flight.url:http://flight:8080}")
 interface FlightClient {
     @GetMapping("/v1/flights/{flightId}")
     fun getFlightById(@PathVariable flightId: String): FlightDto?
+
+    @PostMapping("/v1/flights/{flightId}/availability")
+    fun checkAvailability(
+        @PathVariable flightId: String,
+        @RequestBody request: AvailabilityRequest
+    ): AvailabilityResponse
+
+    @PostMapping("/v1/flights/{flightId}/reserve")
+    fun reserveSeats(@PathVariable flightId: String, @RequestBody request: AvailabilityRequest): Void?
+
+    @PostMapping("/v1/flights/{flightId}/release")
+    fun releaseSeats(@PathVariable flightId: String, @RequestBody request: AvailabilityRequest): Void?
 }
 ```
 
-**중요**: 별도의 인터셉터나 헤더 설정 코드 없이 자동으로 트레이스 전파가 됩니다.
+**2. PaymentClient - 결제 서비스**
+```kotlin
+// reservation/client/PaymentClient.kt
+@FeignClient(name = "payment-service", url = "\${services.payment.url:http://payment:8082}")
+interface PaymentClient {
+    @PostMapping("/v1/payments")
+    fun processPayment(@RequestBody request: PaymentRequest): PaymentResponse
+
+    @GetMapping("/v1/payments/{paymentId}")
+    fun getPaymentById(@PathVariable paymentId: String): PaymentResponse?
+
+    @PostMapping("/v1/payments/{paymentId}/cancel")
+    fun cancelPayment(@PathVariable paymentId: String): PaymentResponse?
+}
+```
+
+**3. TicketClient - 티켓 서비스**
+```kotlin
+// reservation/client/TicketClient.kt
+@FeignClient(name = "ticket-service", url = "\${services.ticket.url:http://ticket:8081}")
+interface TicketClient {
+    @PostMapping("/v1/tickets")
+    fun issueTicket(@RequestBody request: TicketRequest): TicketResponse
+
+    @GetMapping("/v1/tickets/{ticketId}")
+    fun getTicketById(@PathVariable ticketId: String): TicketResponse?
+
+    @PostMapping("/v1/tickets/{ticketId}/cancel")
+    fun cancelTicket(@PathVariable ticketId: String): TicketResponse?
+}
+```
+
+#### 분산 추적 서비스 구현 (실제 호출 플로우)
+
+```kotlin
+// reservation/service/FeignTracingService.kt
+@Service
+class FeignTracingService(
+    private val tracer: Tracer,
+    private val flightClient: FlightClient,
+    private val paymentClient: PaymentClient,
+    private val ticketClient: TicketClient
+) {
+    /**
+     * 간단한 OpenFeign 동기 호출 체인 (자동 instrumentation)
+     * 플로우: Flight 조회 → Payment 처리 → Ticket 발급
+     */
+    fun executeSimpleFeignFlow(): Map<String, Any> {
+        val results = mutableMapOf<String, Any>()
+
+        // 1. Flight Service 호출 (traceparent 헤더 자동 삽입)
+        val flight = flightClient.getFlightById("KE001")
+
+        // 2. Payment Service 호출 (traceparent 헤더 자동 삽입)
+        val paymentRequest = PaymentRequest(
+            reservationId = "RES-${UUID.randomUUID().toString().take(8)}",
+            amount = flight?.price ?: BigDecimal("100000"),
+            paymentMethod = "CARD",
+            customerInfo = CustomerInfo(name = "Test User", email = "test@test.com")
+        )
+        val paymentResult = paymentClient.processPayment(paymentRequest)
+
+        // 3. Ticket Service 호출 (traceparent 헤더 자동 삽입)
+        val ticketRequest = TicketRequest(
+            reservationId = paymentResult.reservationId,
+            paymentId = paymentResult.paymentId,
+            flightId = flight?.flightId ?: "KE001",
+            passengerInfo = TicketPassengerInfo(/* ... */)
+        )
+        val ticketResult = ticketClient.issueTicket(ticketRequest)
+
+        // 모든 호출이 같은 트레이스 ID로 연결됨!
+        return results
+    }
+
+    /**
+     * 복잡한 OpenFeign 호출 체인 (Circuit Breaker 포함)
+     */
+    @CircuitBreaker(name = "feign-complex", fallbackMethod = "executeComplexFeignFlowFallback")
+    fun executeComplexFeignFlow(flightId: String, passengerName: String): Map<String, Any> {
+        // 1. 항공편 조회
+        val flight = flightClient.getFlightById(flightId)
+            ?: throw RuntimeException("Flight not found: $flightId")
+
+        // 2. 좌석 가용성 확인
+        val availability = flightClient.checkAvailability(flightId, AvailabilityRequest(requestedSeats = 1))
+
+        // 3. 좌석 예약
+        flightClient.reserveSeats(flightId, AvailabilityRequest(requestedSeats = 1))
+
+        // 4. 결제 처리
+        val paymentResult = paymentClient.processPayment(paymentRequest)
+
+        // 5. 티켓 발급
+        val ticketResult = ticketClient.issueTicket(ticketRequest)
+
+        return mapOf(
+            "reservationId" to reservationId,
+            "flight" to mapOf("id" to flight.flightId),
+            "payment" to mapOf("id" to paymentResult.paymentId),
+            "ticket" to mapOf("id" to ticketResult.ticketId),
+            "status" to "completed"
+        )
+    }
+
+    // Circuit Breaker Fallback
+    fun executeComplexFeignFlowFallback(flightId: String, passengerName: String, ex: Exception): Map<String, Any> {
+        return mapOf("error" to "Circuit breaker activated", "status" to "circuit_breaker_open")
+    }
+}
+```
+
+#### 분산 추적 테스트 엔드포인트
+```kotlin
+// reservation/api/FeignTracingController.kt
+@RestController
+@RequestMapping("/v1/tracing/feign")
+class FeignTracingController(private val feignTracingService: FeignTracingService) {
+    // 간단한 동기 호출 체인: Flight → Payment → Ticket
+    @PostMapping("/simple-flow")
+    fun testSimpleFeignFlow(): ResponseEntity<Map<String, Any>>
+
+    // 복잡한 호출 체인 (Circuit Breaker 포함)
+    @PostMapping("/complex-flow")
+    fun testComplexFeignFlow(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any>>
+
+    // Circuit Breaker 동작 테스트
+    @PostMapping("/circuit-breaker-test")
+    fun testCircuitBreaker(): ResponseEntity<Map<String, Any>>
+
+    // 병렬 호출 테스트
+    @PostMapping("/parallel-calls")
+    fun testParallelFeignCalls(): ResponseEntity<Map<String, Any>>
+}
+```
+
+**핵심 포인트**: 별도의 인터셉터나 헤더 설정 코드 없이 `feign-micrometer` 의존성만으로 traceparent/tracestate 헤더가 자동으로 전파됩니다.
 
 ## 환경변수 및 설정
 
@@ -250,6 +403,47 @@ fun asyncOperation() {
     // Tracing context가 자동으로 전파되지 않을 수 있음
     // Context Propagation 라이브러리 활용 권장
 }
+```
+
+## 테스트 엔드포인트
+
+### OpenFeign 트레이싱 테스트 API
+
+실제 프로젝트에서 OpenFeign 분산 추적을 테스트할 수 있는 엔드포인트입니다:
+
+| 엔드포인트 | 설명 |
+|-----------|------|
+| `POST /v1/tracing/feign/simple-flow` | 간단한 동기 호출 체인 (Flight→Payment→Ticket) |
+| `POST /v1/tracing/feign/complex-flow` | 전체 예약 프로세스 (가용성 확인, 좌석 예약, 결제, 발권) |
+| `POST /v1/tracing/feign/circuit-breaker-test` | Circuit Breaker 동작 테스트 |
+| `POST /v1/tracing/feign/parallel-calls` | 병렬 호출 테스트 |
+
+### 테스트 실행 방법
+
+```bash
+# 스크립트로 테스트
+./script/test-feign-tracing.sh
+
+# 또는 직접 호출
+curl -X POST http://localhost:8083/v1/tracing/feign/simple-flow
+curl -X POST http://localhost:8083/v1/tracing/feign/complex-flow \
+  -H "Content-Type: application/json" \
+  -d '{"flightId": "KE001", "passengerName": "Test User"}'
+```
+
+### Jaeger UI에서 확인
+
+테스트 후 http://localhost:16686 에서:
+1. **Service**: `reservation-service` 선택
+2. **Operation**: `POST /v1/tracing/feign/simple-flow` 검색
+3. 4개 서비스 (reservation → flight → payment → ticket) 연결된 트레이스 확인
+
+```
+예상 트레이스 구조:
+reservation-service: POST /v1/tracing/feign/simple-flow (Root Span)
+├─ flight-service: GET /v1/flights/{flightId} (Child Span)
+├─ payment-service: POST /v1/payments (Child Span)
+└─ ticket-service: POST /v1/tickets (Child Span)
 ```
 
 ## 모니터링 및 검증

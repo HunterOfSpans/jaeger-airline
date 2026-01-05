@@ -59,30 +59,180 @@
 
 ### 2. 현재 프로젝트 구현 방식
 
+#### 이벤트 체인 흐름
+```
+reservation.requested → seat.reserved → payment.approved → ticket.issued → reservation.completed
+```
+
 #### A. Producer 쪽: 자동 헤더 삽입
 ```kotlin
-@Bean
-fun kafkaTemplate(): KafkaTemplate<String, String> {
-    val kafkaTemplate = KafkaTemplate(producerFactory())
-    kafkaTemplate.setObservationEnabled(true)  // ← 핵심! 자동 헤더 삽입 활성화
-    return kafkaTemplate
+// reservation/config/KafkaProducerConfig.kt
+@Configuration
+class KafkaProducerConfig {
+    companion object {
+        const val KAFKA_URIS = "Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092"
+    }
+
+    @Bean
+    fun producerFactory(): ProducerFactory<String, String> {
+        val config = mapOf(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to KAFKA_URIS,
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
+            ProducerConfig.ACKS_CONFIG to "all",
+            ProducerConfig.RETRIES_CONFIG to 3,
+            ProducerConfig.LINGER_MS_CONFIG to 1
+        )
+        return DefaultKafkaProducerFactory(config)
+    }
+
+    @Bean
+    fun kafkaTemplate(): KafkaTemplate<String, String> {
+        val kafkaTemplate = KafkaTemplate(producerFactory())
+        kafkaTemplate.setObservationEnabled(true)  // ← 핵심! 자동 헤더 삽입 활성화
+        return kafkaTemplate
+    }
 }
 ```
 
 #### B. Consumer 쪽: 커스텀 어노테이션 + AOP
+
+실제 프로젝트에서 구현된 3개의 리스너를 통해 이벤트 체인이 완성됩니다:
+
+**1. Payment Service - 좌석 예약 완료 이벤트 수신**
 ```kotlin
-@KafkaListener(topics = ["ticket.issued"], groupId = "reservation")
-@KafkaOtelTrace(
-    spanName = "process-ticket-issued",
-    attributes = ["event.type=ticket.issued", "service=reservation"]
-)
-fun ticketIssuedListener(
-    @Payload message: String,
-    @Headers headers: MessageHeaders
+// payment/listener/ReservationListener.kt
+@Component
+class ReservationListener(
+    private val paymentService: PaymentService,
+    private val kafkaTemplate: KafkaTemplate<String, String>
 ) {
-    // 깔끔한 비즈니스 로직 - 메시지만 처리
-    println(message)
-    reservationService.confirm()
+    private val logger = LoggerFactory.getLogger(ReservationListener::class.java)
+    private val objectMapper = ObjectMapper()
+
+    @KafkaListener(topics = ["seat.reserved"], groupId = "payment")
+    @KafkaOtelTrace(
+        spanName = "process-seat-reserved",
+        attributes = ["event.type=seat.reserved", "service=payment"],
+        recordMessageContent = true
+    )
+    fun seatReservedListener(
+        @Payload message: String,
+        @Headers headers: MessageHeaders
+    ) {
+        logger.info("Received seat.reserved event: {}", message)
+
+        val eventData = objectMapper.readTree(message)
+        val reservationId = eventData.get("reservationId")?.asText()
+            ?: throw IllegalArgumentException("Missing reservationId")
+        val flightId = eventData.get("flightId")?.asText() ?: "UNKNOWN"
+        val reservedSeats = eventData.get("reservedSeats")?.asInt() ?: 1
+
+        // 결제 처리 (시뮬레이션)
+        val paymentId = processPayment(reservationId, flightId, reservedSeats)
+
+        // 결제 승인 이벤트 발행 → ticket 서비스로 전파
+        publishPaymentApprovedEvent(reservationId, flightId, paymentId, reservedSeats)
+    }
+
+    private fun publishPaymentApprovedEvent(
+        reservationId: String, flightId: String, paymentId: String, seats: Int
+    ) {
+        val eventData = mapOf(
+            "reservationId" to reservationId,
+            "flightId" to flightId,
+            "paymentId" to paymentId,
+            "seats" to seats,
+            "amount" to (seats * 150000),
+            "paymentStatus" to "APPROVED",
+            "timestamp" to System.currentTimeMillis()
+        )
+        kafkaTemplate.send("payment.approved", reservationId, objectMapper.writeValueAsString(eventData))
+    }
+}
+```
+
+**2. Ticket Service - 결제 승인 이벤트 수신**
+```kotlin
+// ticket/listener/PaymentListener.kt
+@Component
+class PaymentListener(
+    private val ticketService: TicketService,
+    private val kafkaTemplate: KafkaTemplate<String, String>
+) {
+    @KafkaListener(topics = ["payment.approved"], groupId = "ticket")
+    @KafkaOtelTrace(
+        spanName = "process-payment-approved",
+        attributes = ["event.type=payment.approved", "service=ticket"],
+        recordMessageContent = true
+    )
+    fun paymentApprovedListener(
+        @Payload message: String,
+        @Headers headers: MessageHeaders
+    ) {
+        val eventData = objectMapper.readTree(message)
+        val reservationId = eventData.get("reservationId")?.asText()
+            ?: throw IllegalArgumentException("Missing reservationId")
+        val paymentId = eventData.get("paymentId")?.asText() ?: "UNKNOWN"
+
+        // 항공권 발급 처리
+        val ticketId = issueTicket(reservationId, paymentId)
+
+        // 항공권 발급 이벤트 발행 → reservation 서비스로 전파
+        publishTicketIssuedEvent(reservationId, flightId, paymentId, ticketId, seats)
+    }
+
+    private fun publishTicketIssuedEvent(/* ... */) {
+        val eventData = mapOf(
+            "reservationId" to reservationId,
+            "ticketId" to ticketId,
+            "seatNumber" to generateSeatNumber(),
+            "ticketStatus" to "ISSUED",
+            "timestamp" to System.currentTimeMillis()
+        )
+        kafkaTemplate.send("ticket.issued", reservationId, objectMapper.writeValueAsString(eventData))
+    }
+}
+```
+
+**3. Reservation Service - 항공권 발급 이벤트 수신 (최종)**
+```kotlin
+// reservation/listener/TicketListener.kt
+@Component
+class TicketListener(
+    private val reservationService: ReservationService,
+    private val kafkaTemplate: KafkaTemplate<String, String>
+) {
+    @KafkaListener(topics = ["ticket.issued"], groupId = "reservation")
+    @KafkaOtelTrace(
+        spanName = "process-ticket-issued",
+        attributes = ["event.type=ticket.issued", "service=reservation"],
+        recordMessageContent = true
+    )
+    fun ticketIssuedListener(
+        @Payload message: String,
+        @Headers headers: MessageHeaders
+    ) {
+        val eventData = objectMapper.readTree(message)
+        val reservationId = eventData.get("reservationId")?.asText()
+            ?: throw IllegalArgumentException("Missing reservationId")
+
+        // 예약 확정 처리
+        confirmReservation(reservationId, flightId, paymentId, ticketId, seatNumber)
+
+        // 예약 완료 이벤트 발행 (최종 이벤트)
+        publishReservationCompletedEvent(reservationId, flightId, paymentId, ticketId, seatNumber)
+    }
+
+    private fun publishReservationCompletedEvent(/* ... */) {
+        val eventData = mapOf(
+            "reservationId" to reservationId,
+            "reservationStatus" to "COMPLETED",
+            "message" to "Reservation process completed successfully",
+            "timestamp" to System.currentTimeMillis()
+        )
+        kafkaTemplate.send("reservation.completed", reservationId, objectMapper.writeValueAsString(eventData))
+    }
 }
 ```
 
@@ -177,71 +327,125 @@ annotation class KafkaOtelTrace(
 )
 ```
 
-### 2. KafkaTracingAspect 구현 핵심
+### 2. KafkaTracingAspect 실제 구현
 
-#### A. 메시지 헤더에서 Trace Context 추출 (MessageHeaders 우선)
+실제 프로젝트의 `common/kafka-tracing` 모듈에 구현된 AOP Aspect입니다:
+
 ```kotlin
-@Around("@annotation(kafkaOtelTrace)")
-fun traceKafkaListener(pjp: ProceedingJoinPoint, kafkaOtelTrace: KafkaOtelTrace): Any? {
-    // 1. MessageHeaders 우선 탐지 (더 깔끔한 방식)
-    val messageHeaders = pjp.args.filterIsInstance<MessageHeaders>().firstOrNull()
-    if (messageHeaders != null) {
-        return traceWithMessageHeaders(pjp, kafkaOtelTrace, messageHeaders)
+// common/kafka-tracing/src/main/kotlin/com/airline/tracing/aspect/KafkaTracingAspect.kt
+@Aspect
+class KafkaTracingAspect(private val openTelemetry: OpenTelemetry) {
+
+    private val logger = LoggerFactory.getLogger(KafkaTracingAspect::class.java)
+
+    companion object {
+        private const val TRACER_NAME = "kafka-tracing"
+        private const val TRACER_VERSION = "1.0.0"
     }
 
-    // 2. ConsumerRecord 탐지 (기존 방식 호환성 유지)
-    val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
-    if (record != null) {
-        return traceWithConsumerRecord(pjp, kafkaOtelTrace, record)
-    }
-    
-    logger.warn("@KafkaOtelTrace used on method without MessageHeaders or ConsumerRecord parameter")
-    return pjp.proceed()
-}
+    @Around("@annotation(kafkaOtelTrace)")
+    fun traceKafkaListener(pjp: ProceedingJoinPoint, kafkaOtelTrace: KafkaOtelTrace): Any? {
+        // 1. MessageHeaders 우선 탐지 (Spring Kafka 권장 방식)
+        val messageHeaders = pjp.args.filterIsInstance<MessageHeaders>().firstOrNull()
+        if (messageHeaders != null) {
+            return traceWithMessageHeaders(pjp, kafkaOtelTrace, messageHeaders)
+        }
 
-// MessageHeaders를 위한 전용 처리 메소드
-private fun traceWithMessageHeaders(
-    pjp: ProceedingJoinPoint, 
-    kafkaOtelTrace: KafkaOtelTrace, 
-    messageHeaders: MessageHeaders
-): Any? {
-    // TextMapGetter로 헤더에서 트레이스 정보 추출
-    val getter = object : TextMapGetter<MessageHeaders> {
+        // 2. ConsumerRecord 탐지 (레거시 호환성)
+        val record = pjp.args.filterIsInstance<ConsumerRecord<*, *>>().firstOrNull()
+        if (record != null) {
+            return traceWithConsumerRecord(pjp, kafkaOtelTrace, record)
+        }
+
+        // 3. 헤더 없이 호출된 경우 경고 로그 후 진행
+        logger.warn(
+            "@KafkaOtelTrace used on method without MessageHeaders or ConsumerRecord parameter: {}. " +
+                "Trace context will not be propagated.",
+            pjp.signature.name
+        )
+        return pjp.proceed()
+    }
+
+    private fun traceWithMessageHeaders(
+        pjp: ProceedingJoinPoint,
+        kafkaOtelTrace: KafkaOtelTrace,
+        messageHeaders: MessageHeaders
+    ): Any? {
+        // MessageHeaders에서 Trace Context 추출 (싱글톤 객체 사용)
+        val parentContext = openTelemetry.propagators
+            .textMapPropagator
+            .extract(Context.current(), messageHeaders, MessageHeadersTextMapGetter)
+
+        // Kafka 메타데이터 추출 (Spring Kafka의 KafkaHeaders 상수 활용)
+        val topic = messageHeaders[KafkaHeaders.RECEIVED_TOPIC]?.toString() ?: "unknown"
+        val partition = (messageHeaders[KafkaHeaders.RECEIVED_PARTITION] as? Int) ?: -1
+        val offset = (messageHeaders[KafkaHeaders.OFFSET] as? Long) ?: -1L
+
+        return executeWithSpan(pjp, kafkaOtelTrace, parentContext, topic, partition, offset, null)
+    }
+
+    private fun executeWithSpan(/* ... */): Any? {
+        val spanName = resolveSpanName(kafkaOtelTrace, pjp)
+        val tracer = openTelemetry.getTracer(TRACER_NAME, TRACER_VERSION)
+
+        val spanBuilder = tracer.spanBuilder(spanName)
+            .setSpanKind(SpanKind.CONSUMER)
+            .setParent(parentContext)                    // ← 부모 컨텍스트 연결 (핵심!)
+            // OpenTelemetry Semantic Conventions for Messaging
+            .setAttribute("messaging.system", "kafka")
+            .setAttribute("messaging.destination.name", topic)
+            .setAttribute("messaging.destination.kind", "topic")
+            .setAttribute("messaging.kafka.partition", partition.toLong())
+            .setAttribute("messaging.kafka.message.offset", offset)
+            .setAttribute("messaging.operation", "receive")
+
+        // 커스텀 속성 추가 (어노테이션에서 지정한 attributes)
+        kafkaOtelTrace.attributes.forEach { attr ->
+            val parts = attr.split("=", limit = 2)
+            if (parts.size == 2) {
+                spanBuilder.setAttribute(parts[0].trim(), parts[1].trim())
+            }
+        }
+
+        val span = spanBuilder.startSpan()
+
+        return try {
+            span.makeCurrent().use {                     // ← 현재 스레드에 컨텍스트 설정
+                logger.debug("Executing Kafka consumer with traceId: {}", span.spanContext.traceId)
+                pjp.proceed()                            // 실제 리스너 메서드 실행
+            }
+        } catch (e: Exception) {
+            if (kafkaOtelTrace.recordException) {
+                span.recordException(e)
+                span.setStatus(StatusCode.ERROR, e.message ?: "Kafka consumer execution failed")
+            }
+            throw e
+        } finally {
+            span.end()
+        }
+    }
+
+    // ⭐ 싱글톤 객체로 TextMapGetter 구현 (메모리 효율)
+    private object MessageHeadersTextMapGetter : TextMapGetter<MessageHeaders> {
         override fun keys(carrier: MessageHeaders): Iterable<String> = carrier.keys
-        override fun get(carrier: MessageHeaders?, key: String): String? = 
+        override fun get(carrier: MessageHeaders?, key: String): String? =
             carrier?.get(key)?.toString()
     }
 
-    // OpenTelemetry Propagator로 부모 컨텍스트 복원
-    val parentContext = openTelemetry.propagators.textMapPropagator
-        .extract(Context.current(), messageHeaders, getter)
+    private object ConsumerRecordTextMapGetter : TextMapGetter<ConsumerRecord<*, *>> {
+        override fun keys(carrier: ConsumerRecord<*, *>): Iterable<String> =
+            carrier.headers().map { it.key() }
+        override fun get(carrier: ConsumerRecord<*, *>?, key: String): String? =
+            carrier?.headers()?.lastHeader(key)?.value()?.toString(Charsets.UTF_8)
+    }
+}
 ```
 
-#### B. Child Span 생성 및 컨텍스트 연결
-```kotlin
-    val spanName = if (kafkaOtelTrace.spanName.isNotBlank()) {
-        kafkaOtelTrace.spanName
-    } else {
-        "KafkaConsumer.${pjp.signature.name}"
-    }
-
-    val span = tracer.spanBuilder(spanName)
-        .setSpanKind(SpanKind.CONSUMER)
-        .setParent(parentContext)                    // ← 부모 컨텍스트 연결
-        .setAttribute("messaging.system", "kafka")
-        .setAttribute("messaging.destination", record.topic())
-        .setAttribute("messaging.kafka.partition", record.partition().toLong())
-        .setAttribute("messaging.kafka.offset", record.offset())
-        .startSpan()
-
-    return try {
-        span.makeCurrent().use {                     // ← 현재 스레드에 컨텍스트 설정
-            pjp.proceed()                            // 실제 리스너 메서드 실행
-        }
-    } finally {
-        span.end()
-    }
-```
+**핵심 포인트:**
+- `MessageHeadersTextMapGetter`: Spring Kafka의 `@Headers`로 주입된 `MessageHeaders`에서 트레이스 정보 추출
+- `ConsumerRecordTextMapGetter`: 레거시 방식의 `ConsumerRecord`에서 트레이스 정보 추출
+- `setParent(parentContext)`: Producer에서 전달된 부모 컨텍스트와 연결 (트레이스 연결의 핵심!)
+- `span.makeCurrent()`: 현재 스레드에 컨텍스트 설정 → 이후 호출되는 코드도 같은 트레이스에 포함
 
 ### 3. 실제 사용 예시
 
@@ -642,14 +846,55 @@ class KafkaHeaderDebugInterceptor : ConsumerInterceptor<String, String> {
 }
 ```
 
+## 테스트 엔드포인트
+
+### Kafka 트레이싱 테스트 API
+
+실제 프로젝트에서 Kafka 분산 추적을 테스트할 수 있는 엔드포인트입니다:
+
+```kotlin
+// reservation/api/KafkaTracingController.kt
+@RestController
+@RequestMapping("/v1/tracing/kafka")
+class KafkaTracingController(private val kafkaTracingService: KafkaTracingService)
+```
+
+| 엔드포인트 | 설명 |
+|-----------|------|
+| `POST /v1/tracing/kafka/simple-events` | 간단한 이벤트 체인 테스트 |
+| `POST /v1/tracing/kafka/complex-events` | 전체 예약 프로세스 이벤트 플로우 |
+| `POST /v1/tracing/kafka/failure-compensation` | 실패/보상 트랜잭션 테스트 |
+| `POST /v1/tracing/kafka/multi-topic-events` | 다중 토픽 동시 이벤트 발행 |
+| `GET /v1/tracing/kafka/event-status/{eventId}` | 이벤트 처리 상태 조회 |
+
+### 테스트 실행 방법
+
+```bash
+# 스크립트로 테스트
+./script/test-kafka-tracing.sh
+
+# 또는 직접 호출
+curl -X POST http://localhost:8083/v1/tracing/kafka/simple-events
+curl -X POST http://localhost:8083/v1/tracing/kafka/complex-events \
+  -H "Content-Type: application/json" \
+  -d '{"flightId": "OZ456", "passengerName": "Test User"}'
+```
+
+### Jaeger UI에서 확인
+
+테스트 후 http://localhost:16686 에서:
+1. **Service**: `reservation-service` 선택
+2. **Operation**: `kafka-event-chain` 또는 `process-*` 검색
+3. 4개 서비스 (reservation → payment → ticket → reservation) 연결된 트레이스 확인
+
 ## 모니터링 및 관찰성
 
 ### 1. Jaeger UI에서 Kafka 트레이스 확인
 
 1. **Service 선택**: 각 마이크로서비스 선택
-2. **Operation 확인**: 
+2. **Operation 확인**:
    - Producer: `kafka.send`
-   - Consumer: `KafkaConsumer.{method-name}`
+   - Consumer: `process-seat-reserved`, `process-payment-approved`, `process-ticket-issued`
 3. **Timeline 분석**: 메시지 처리 시간, 대기 시간 확인
 
 ### 2. 핵심 메트릭 모니터링
