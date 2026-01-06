@@ -117,7 +117,7 @@ services:
           cpus: "0.25"
           memory: 128m
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:14269" ]
+      test: [ "CMD", "wget", "-q", "-O-", "http://localhost:14269/status" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -146,7 +146,7 @@ services:
           cpus: "0.25"
           memory: 128m
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:16687" ]
+      test: [ "CMD", "wget", "-q", "-O-", "http://localhost:16687/status" ]
       interval: 10s
       timeout: 5s
       retries: 5
