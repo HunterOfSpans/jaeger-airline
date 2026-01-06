@@ -1,0 +1,18 @@
+# Docker environment configuration
+spring:
+  kafka:
+    consumer:
+      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
+
+services:
+  flight:
+    url: http://flight:8080
+  payment:
+    url: http://payment:8082
+  ticket:
+    url: http://ticket:8081
+
+otel:
+  exporter:
+    otlp:
+      endpoint: http://collector:4317

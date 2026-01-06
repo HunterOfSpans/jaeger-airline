@@ -8,22 +8,26 @@ spring:
     consumer:
       enable-auto-commit: true
       auto-commit-interval: 1000
-      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:10000,localhost:10001,localhost:10002}
   profiles:
     include:
       - circuit
 
 server:
   port: 8083
+  shutdown: graceful
 
-# Service URLs for Docker/Production
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
+
+# Service URLs (localhost for local dev, docker names via docker profile)
 services:
   flight:
-    url: http://flight:8080
+    url: ${FLIGHT_SERVICE_URL:http://localhost:8080}
   payment:
-    url: http://payment:8082
+    url: ${PAYMENT_SERVICE_URL:http://localhost:8082}
   ticket:
-    url: http://ticket:8081
+    url: ${TICKET_SERVICE_URL:http://localhost:8081}
 
 # Feign Configuration
 feign:
@@ -36,7 +40,7 @@ feign:
   circuitbreaker:
     enabled: true
 
-# Management endpoints for health checks
+# Management endpoints
 management:
   endpoints:
     web:
@@ -44,13 +48,23 @@ management:
         include: health,info,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.airline: INFO
+    io.opentelemetry: WARN
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
 
 otel:
   exporter:
     otlp:
       protocol: grpc
-      endpoint: http://collector:4317
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
   traces:
     exporter: otlp
   logs:

@@ -1,14 +1,32 @@
 # Reservation Service Dockerfile
-# Kotlin 기반의 예약 오케스트레이션 서비스
-# Saga 패턴과 Circuit Breaker 구현
+# Kotlin based reservation orchestration service
+# Implements Saga pattern and Circuit Breaker
 FROM eclipse-temurin:21-jre
 
-# Gradle로 빌드된 JAR 파일을 컨테이너로 복사
-COPY /build/libs/*.jar reservation.jar
+# Install curl for health checks
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# 서비스 포트 8083 노출 (메인 오케스트레이션 서비스)
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy JAR file built by Gradle
+COPY --chown=appuser:appuser /build/libs/*.jar app.jar
+
+# Expose service port (main orchestration service)
 EXPOSE 8083
 
-# JAVA_OPTS 환경변수로 JVM 옵션 설정 가능
-# 예: -Xmx384m -Xms256m (메모리 제한)
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar reservation.jar"]
+# Default JVM options optimized for containers
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD curl -f http://localhost:8083/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

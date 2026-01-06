@@ -8,25 +8,48 @@ spring:
     consumer:
       enable-auto-commit: true
       auto-commit-interval: 1000
-      bootstrap-servers: Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
-
-# 티켓 서비스 설정  
-ticket:
-  seat-assignment:
-    max-rows: 30          # 최대 좌석 행 수
-    columns: ["A", "B", "C", "D", "E", "F"]  # 좌석 열
-  id-generation:
-    prefix: "TKT-"        # 티켓 ID 접두사
-    uuid-length: 8        # UUID 잘라내기 길이
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:10000,localhost:10001,localhost:10002}
 
 server:
   port: 8081
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
+
+# Ticket service settings
+ticket:
+  seat-assignment:
+    max-rows: 30
+    columns: ["A", "B", "C", "D", "E", "F"]
+  id-generation:
+    prefix: "TKT-"
+    uuid-length: 8
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.airline: INFO
+    io.opentelemetry: WARN
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
 
 otel:
   exporter:
     otlp:
       protocol: grpc
-      endpoint: http://collector:4317
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
   traces:
     exporter: otlp
   logs:

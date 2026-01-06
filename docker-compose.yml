@@ -13,15 +13,20 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512m
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s" ]
-      interval: 50s
+      interval: 30s
       timeout: 10s
       retries: 10
+      start_period: 30s
 
   ilm-setup:
-    image: appropriate/curl
+    image: curlimages/curl:8.5.0
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -54,7 +59,7 @@ services:
       - jaeger
 
   es-rollover-init:
-    image: jaegertracing/jaeger-es-rollover:latest
+    image: jaegertracing/jaeger-es-rollover:2.14.1
     container_name: jaeger-es-init
     depends_on:
       ilm-setup:
@@ -76,8 +81,80 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     networks:
       - jaeger
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5601/api/status" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+
+  collector:
+    build:
+      context: ./jaeger/collector
+    container_name: collector
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "5778:5778"   # Remote sampling HTTP
+      - "5779:5779"   # Remote sampling gRPC
+      - "14269:14269" # Health check
+    networks:
+      - jaeger
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.25"
+          memory: 128m
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:14269" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["--config", "/jaeger/config.yaml"]
+
+  query:
+    build:
+      context: ./jaeger/query
+    container_name: query
+    ports:
+      - "16686:16686" # UI port
+      - "16687:16687" # Health check
+    networks:
+      - jaeger
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+        reservations:
+          cpus: "0.25"
+          memory: 128m
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:16687" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
 
   flight:
     build:
@@ -88,14 +165,26 @@ services:
     networks:
       - jaeger
     environment:
-      - JAVA_OPTS=-Xmx384m -Xms256m
+      - JAVA_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xmx384m -Xms256m
+      - SPRING_PROFILES_ACTIVE=docker
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 500m
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     depends_on:
-      - collector
+      collector:
+        condition: service_healthy
 
   ticket:
     build:
@@ -106,14 +195,26 @@ services:
     networks:
       - jaeger
     environment:
-      - JAVA_OPTS=-Xmx384m -Xms256m
+      - JAVA_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xmx384m -Xms256m
+      - SPRING_PROFILES_ACTIVE=docker
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 500m
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     depends_on:
-      - collector
+      collector:
+        condition: service_healthy
 
   payment:
     build:
@@ -124,14 +225,26 @@ services:
     networks:
       - jaeger
     environment:
-      - JAVA_OPTS=-Xmx384m -Xms256m
+      - JAVA_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xmx384m -Xms256m
+      - SPRING_PROFILES_ACTIVE=docker
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 500m
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     depends_on:
-      - collector
+      collector:
+        condition: service_healthy
 
   reservation:
     build:
@@ -142,45 +255,27 @@ services:
     networks:
       - jaeger
     environment:
-      - JAVA_OPTS=-Xmx384m -Xms256m
+      - JAVA_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xmx384m -Xms256m
+      - SPRING_PROFILES_ACTIVE=docker
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 500m
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
     depends_on:
-      - collector
+      collector:
+        condition: service_healthy
 
-  collector:
-    build:
-      context: ./jaeger/collector
-    container_name: collector
-    ports:
-      - "4317:4317" # grpc
-      - "4318:4318" # http
-      - "5778:5778" # remote sampling http
-      - "5779:5779" # remote sampling grpc
-      - "14269:14269" # healthcheck
-    restart: unless-stopped
-    networks:
-      - jaeger
-    depends_on:
-      - elasticsearch
-    command: ["--config", "/jaeger/config.yaml"]
-
-  query:
-    build:
-      context: ./jaeger/query
-    container_name: query
-    ports:
-      - "16686:16686" # ui port
-      - "16687:16687" # healthcheck
-    restart: unless-stopped
-    networks:
-      - jaeger
-    depends_on:
-      - elasticsearch
-      
 networks:
   jaeger:
     driver: bridge
